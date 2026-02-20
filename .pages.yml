@@ -1,0 +1,31 @@
+media:
+  input: public/images
+  output: /images
+
+content:
+ 
+
+  # === DYNAMIC PAGES ===
+  - name: pages
+    label: Pages
+    path: docs
+    type: collection
+    format: json
+    filename: 'pages'
+    fields:
+      - name: title
+        label: Page Title
+        type: string
+        required: true
+      - name: slug
+        label: URL Slug
+        type: string
+        required: true
+      
+  
+
+          
+ 
+  
+
+   
