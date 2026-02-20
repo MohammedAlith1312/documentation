@@ -30,21 +30,20 @@ content:
 
 
 # === SIDEBAR (NAVIGATION) ===
+   # === DOCSIFY SIDEBAR NAVIGATION ===
   - name: sidebar
     label: Navigation Menu
     path: docs/_sidebar.md
     type: file
-    format: raw # This creates a plain Markdown file for Docsify
+    format: raw
     fields:
       - name: content
-        label: Menu Links (Markdown List)
+        label: Menu Links
         type: rich-text
         default: |
           - [Home](/)
           - [React Basics](react-basics.md)
           - [React Hooks](react-hooks.md)
-      
-  
 
           
  
