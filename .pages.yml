@@ -29,9 +29,7 @@ content:
         required: true
 
 
-# === SIDEBAR (NAVIGATION) ===
-   # === DOCSIFY SIDEBAR NAVIGATION ===
-  # === DOCSIFY SIDEBAR NAVIGATION ===
+
   - name: sidebar
     label: Navigation Menu
     path: docs/_sidebar.md
