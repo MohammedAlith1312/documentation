@@ -10,8 +10,8 @@ content:
     label: React Docs
     path: docs
     type: collection
-    format: json
-    filename: "{fields.slug}.json" # This allows files like simple-react-learn.json
+    format:  yaml-frontmatter
+    filename: "{fields.slug}.md" # This allows files like simple-react-learn.json
     fields:
       - name: title
         label: Document Title
