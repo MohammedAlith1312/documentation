@@ -30,19 +30,7 @@ content:
 
 
 
-  - name: sidebar
-    label: Navigation Menu
-    path: docs/_sidebar.md
-    type: file
-    format: raw
-    fields:
-      - name: content
-        label: Menu Links
-        type: text # <--- Changed to 'text' for clean Markdown output
-        default: |
-          - [Home](/)
-          - [React Basics](react-basics.md)
-          - [React Hooks](react-hooks.md)
+  
 
           
  
