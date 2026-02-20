@@ -31,6 +31,7 @@ content:
 
 # === SIDEBAR (NAVIGATION) ===
    # === DOCSIFY SIDEBAR NAVIGATION ===
+  # === DOCSIFY SIDEBAR NAVIGATION ===
   - name: sidebar
     label: Navigation Menu
     path: docs/_sidebar.md
@@ -39,7 +40,7 @@ content:
     fields:
       - name: content
         label: Menu Links
-        type: rich-text
+        type: text # <--- Changed to 'text' for clean Markdown output
         default: |
           - [Home](/)
           - [React Basics](react-basics.md)
