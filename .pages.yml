@@ -27,7 +27,22 @@ content:
         label: Full Page Content
         type: rich-text # This gives you the entire page area for your docs
         required: true
-      
+
+
+# === SIDEBAR (NAVIGATION) ===
+  - name: sidebar
+    label: Navigation Menu
+    path: docs/_sidebar.md
+    type: file
+    format: raw # This creates a plain Markdown file for Docsify
+    fields:
+      - name: content
+        label: Menu Links (Markdown List)
+        type: rich-text
+        default: |
+          - [Home](/)
+          - [React Basics](react-basics.md)
+          - [React Hooks](react-hooks.md)
       
   
 
