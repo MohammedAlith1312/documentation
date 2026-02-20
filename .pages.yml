@@ -5,22 +5,29 @@ media:
 content:
  
 
-  # === DYNAMIC PAGES ===
+  # === REACT DOCUMENTATION COLLECTION ===
   - name: pages
-    label: Pages
+    label: React Docs
     path: docs
     type: collection
     format: json
-    filename: 'pages'
+    filename: "{fields.slug}.json" # This allows files like simple-react-learn.json
     fields:
       - name: title
-        label: Page Title
+        label: Document Title
         type: string
         required: true
+
       - name: slug
         label: URL Slug
         type: string
         required: true
+
+      - name: content
+        label: Full Page Content
+        type: rich-text # This gives you the entire page area for your docs
+        required: true
+      
       
   
 
