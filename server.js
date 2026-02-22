@@ -5,11 +5,16 @@ const dotenv = require("dotenv");
 
 dotenv.config();
 
+const path = require("path");
+
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-const PORT = process.env.PORT || 5000;
+// Serve Docsify static site from public/
+app.use(express.static(path.join(__dirname, "public")));
+
+const PORT = process.env.PORT || 3000;
 
 // Helper to authenticate as GitHub App
 async function getOctokit(owner) {

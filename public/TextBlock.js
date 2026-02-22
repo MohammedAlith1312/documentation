@@ -166,7 +166,7 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     title: text.substring(0, 50) + (text.length > 50 ? '...' : ''),
-                    body: `**Description:**\n${text}\n\n**Selected Context:**\n> ${state.lastSelection.text}\n\n**URL:**\n${window.location.href}`
+                    body: `**Description:**\n${text}\n\n**Selected ${state.lastSelection.type === 'image' ? 'Image' : 'Text'}:**\n${state.lastSelection.type === 'image' ? '' : '> '}${state.lastSelection.text}\n\n**URL:**\n${window.location.href}`
                 })
             });
 
@@ -198,13 +198,18 @@
                     <div style="font-size: 10px; font-weight: 800; color: #aaa;">LINKED ISSUE</div>
                     <div style="font-size: 10px; font-weight: 800; color: #3b82f6;">#${issue.issueNumber}</div>
                 </div>
-                <div style="font-weight: 600; font-size: 15px; margin-bottom: 15px;">${issue.title}</div>
-                <div style="background: #f8f9fa; padding: 12px; border-radius: 12px; font-size: 13px; color: #666; font-style: italic; margin-bottom: 20px;">
+                <div style="font-weight: 600; font-size: 15px; margin-bottom: 10px;">${issue.title}</div>
+                <div style="font-size: 13px; color: #444; margin-bottom: 15px; line-height: 1.4;">
+                    ${extractDescription(issue.body)}
+                </div>
+                <div style="background: #f8f9fa; padding: 12px; border-radius: 12px; font-size: 12px; color: #888; font-style: italic; margin-bottom: 20px; border-left: 4px solid #eee;">
                     "${issue.selectedText || 'Image selection'}"
                 </div>
-                <div style="display: flex; gap: 10px;">
-                    <button class="tb-btn" style="flex: 1; background: #eee; color: #111;" onclick="window.open('${issue.url}', '_blank')">View on GitHub</button>
-                    <button class="tb-btn" style="flex: 1; background: #fff1f2; color: #ef4444;" id="tb-close-btn">Close Issue</button>
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    <button class="tb-btn" style="flex: 1; background: #eee; color: #111;" onclick="window.open('${issue.url}', '_blank')">GitHub</button>
+                    <button class="tb-btn" style="flex: 1; background: #f0f7ff; color: #3b82f6;" id="tb-edit-btn">Edit</button>
+                    <button class="tb-btn" style="flex: 1; background: #f0fdf4; color: #16a34a;" id="tb-comment-btn">Comment</button>
+                    <button class="tb-btn" style="flex: 1; background: #fff1f2; color: #ef4444;" id="tb-close-btn">Close</button>
                 </div>
             </div>
         `;
@@ -212,6 +217,139 @@
         positionPopup(popup, rect);
 
         document.getElementById('tb-close-btn').onclick = () => closeIssue(issue);
+        document.getElementById('tb-edit-btn').onclick = () => showEditForm(issue, rect);
+        document.getElementById('tb-comment-btn').onclick = () => showCommentForm(issue, rect);
+    }
+
+    function extractDescription(body) {
+        if (!body) return '';
+        if (body.includes('**Description:**\n')) {
+            const parts = body.split('**Description:**\n')[1].split('\n\n**Selected');
+            return parts[0].trim();
+        }
+        return body.substring(0, 100) + '...';
+    }
+
+    function showEditForm(issue, rect) {
+        hidePopups();
+        const popup = document.createElement('div');
+        popup.className = 'tb-popup';
+        popup.id = 'tb-edit-form';
+        const currentDesc = extractDescription(issue.body);
+        popup.innerHTML = `
+            <div style="padding: 20px;">
+                <div style="font-size: 10px; font-weight: 800; color: #aaa; margin-bottom: 12px; letter-spacing: 0.05em;">EDIT ISSUE #${issue.issueNumber}</div>
+                <textarea class="tb-textarea" id="tb-edit-input" rows="4">${currentDesc}</textarea>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <button class="tb-btn" style="background: #eee; color: #111;" id="tb-edit-cancel">Cancel</button>
+                    <button class="tb-btn" id="tb-update-btn">Save Changes</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(popup);
+        positionPopup(popup, rect);
+
+        const input = document.getElementById('tb-edit-input');
+        input.focus();
+
+        document.getElementById('tb-edit-cancel').onclick = () => showCard(issue, rect);
+        document.getElementById('tb-update-btn').onclick = () => updateIssue(issue, input.value.trim(), rect);
+    }
+
+    async function updateIssue(issue, newText, rect) {
+        if (!newText || state.status === 'submitting') return;
+
+        state.status = 'submitting';
+        const btn = document.getElementById('tb-update-btn');
+        btn.innerText = 'Saving...';
+        btn.disabled = true;
+
+        try {
+            // Reconstruct body to include metadata + new description
+            const isImage = issue.selectedText && issue.selectedText.startsWith('![');
+            const contextHeader = isImage ? 'Image' : 'Text';
+            const contextPrefix = isImage ? '' : '> ';
+            const body = `**Description:**\n${newText}\n\n**Selected ${contextHeader}:**\n${contextPrefix}${issue.selectedText}\n\n**URL:**\n${window.location.href}`;
+
+            const res = await fetch(`${API_BASE}/update`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    number: issue.issueNumber,
+                    title: newText.substring(0, 50) + (newText.length > 50 ? '...' : ''),
+                    body: body
+                })
+            });
+
+            if (res.ok) {
+                showToast("✓ Issue Updated");
+                hidePopups();
+                fetchIssues();
+            } else {
+                showToast("Error updating issue");
+            }
+        } catch (e) {
+            showToast("Error updating issue");
+        } finally {
+            state.status = 'idle';
+        }
+    }
+
+    function showCommentForm(issue, rect) {
+        hidePopups();
+        const popup = document.createElement('div');
+        popup.className = 'tb-popup';
+        popup.id = 'tb-comment-form';
+        popup.innerHTML = `
+            <div style="padding: 20px;">
+                <div style="font-size: 10px; font-weight: 800; color: #aaa; margin-bottom: 12px; letter-spacing: 0.05em;">ADD COMMENT — ISSUE #${issue.issueNumber}</div>
+                <textarea class="tb-textarea" id="tb-comment-input" rows="3" placeholder="Write a comment..."></textarea>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <button class="tb-btn" style="background: #eee; color: #111;" id="tb-comment-cancel">Cancel</button>
+                    <button class="tb-btn" id="tb-comment-submit-btn">Post Comment</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(popup);
+        positionPopup(popup, rect);
+
+        const input = document.getElementById('tb-comment-input');
+        input.focus();
+
+        document.getElementById('tb-comment-cancel').onclick = () => showCard(issue, rect);
+        document.getElementById('tb-comment-submit-btn').onclick = () => submitComment(issue, input.value.trim(), rect);
+    }
+
+    async function submitComment(issue, text, rect) {
+        if (!text || state.status === 'submitting') return;
+
+        state.status = 'submitting';
+        const btn = document.getElementById('tb-comment-submit-btn');
+        btn.innerText = 'Posting...';
+        btn.disabled = true;
+
+        try {
+            const res = await fetch(`${API_BASE}/comment`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    number: issue.issueNumber,
+                    comment: text
+                })
+            });
+
+            if (res.ok) {
+                showToast("✓ Comment Posted");
+                hidePopups();
+                // Optionally show the card again or just keep it hidden
+            } else {
+                showToast("Error posting comment");
+            }
+        } catch (e) {
+            showToast("Error posting comment");
+        } finally {
+            state.status = 'idle';
+        }
     }
 
     async function closeIssue(issue) {
