@@ -1,5 +1,5 @@
 ---
-slug: _nav
+slug: _navbar
 content: |-
   \- \[Home\](/)
 
