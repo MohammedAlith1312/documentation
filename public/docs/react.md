@@ -10,21 +10,17 @@ content: >-
   *   React is used to build single-page applications.
       
   *   React allows us to create reusable UI components. \`\`\` import {
-  createRoot } from 'react-dom/client';
+  createRoot } from 'react-dom/client'.
       
-
-  ```
-
-  function Hello() { return (
-
-
-  Hello World!
-
-   ); } 
-
-    createRoot(document.getElementById('root')).render(
-          <Hello />
-        );
-   ```
-  ```
+      ```
+      function Hello() { return (
+      
+      Hello World!
+      
+      ); }
+      
+      createRoot(document.getElementById('root')).render(
+            <Hello />
+          );
+      ```
 ---
