@@ -1,31 +1,25 @@
 /**
- * TextBlock.js - Full Port of TextBlock.tsx
+ * TextBlock.js - Premium Docsify Integration
  * Comprehensive Issue Feedback System: Create, View, Edit, Comment, Close.
- * Highlights persist until the issue is closed.
+ * Highlights persist across navigations and until the issue is closed.
  */
 
 (function () {
     const API_BASE = '/api/issues';
 
-    // --- Configuration & State (Ported from TSX) ---
+    // --- Configuration & State ---
     const state = {
         issues: [],
         status: 'idle',           // 'idle' | 'submitting'
         selectedText: '',
         selectionType: 'text',    // 'text' | 'image'
-        toast: { show: false, message: '' },
         showInput: false,
-        inputPosition: { top: 0, left: 0 },
-        activeIssue: null,        // Currently viewed issue (hoveredIssue in TSX)
+        activeIssue: null,
         showIssueCard: false,
-        issueCardPosition: { top: 0, left: 0 },
         isEditing: false,
-        editTitle: '',
-        editBody: '',
-        commentText: '',
         showCommentInput: false,
-        selectionRange: null,     // To store range for highlighting
-        lastClickedImage: null    // To store image ref
+        selectionRange: null,
+        lastClickedImage: null
     };
 
     // --- Initialization ---
@@ -34,9 +28,10 @@
         createDOMElements();
         fetchIssues();
         bindEvents();
+        setupNavigationObserver();
     }
 
-    // --- CSS Injection (Matching TSX Premium Design) ---
+    // --- CSS Injection (Premium Design) ---
     function injectStyles() {
         if (document.getElementById('tb-styles')) return;
         const style = document.createElement('style');
@@ -65,7 +60,7 @@
             .tb-popup {
                 position: fixed; z-index: 9999;
                 background: white; border-radius: 24px;
-                box-shadow: 0 10px 40px rgba(0,0,0,0.12);
+                box-shadow: 0 10px 40px rgba(0,0,0,0.2);
                 border: 1px solid #e5e7eb;
                 font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
                 overflow: hidden;
@@ -122,16 +117,40 @@
         }
     }
 
-    // --- Event Binding (Ported from TSX handleMouseEvent hooks) ---
+    // --- Navigation Support: MutationObserver ---
+    let _navObserver = null;
+    function setupNavigationObserver() {
+        const targetNode = document.getElementById('app') || document.body;
+        _navObserver = new MutationObserver((mutations) => {
+            // Check if any significant change happened (not just our own spans)
+            const hasRealChanges = mutations.some(m => {
+                if (m.target && (m.target.classList?.contains('issue-highlight') || m.target.parentElement?.classList?.contains('issue-highlight'))) return false;
+                return true;
+            });
+
+            if (hasRealChanges && state.issues.length > 0) {
+                clearTimeout(window._tb_nav_timer);
+                window._tb_nav_timer = setTimeout(() => {
+                    if (_navObserver) _navObserver.disconnect();
+                    reapplyHighlights(state.issues);
+                    if (_navObserver) _navObserver.observe(targetNode, { childList: true, subtree: true });
+                }, 200);
+            }
+        });
+        _navObserver.observe(targetNode, { childList: true, subtree: true });
+    }
+
+    // --- Event Binding ---
     function bindEvents() {
         document.addEventListener('mouseup', handleTextSelection);
         document.addEventListener('click', onDocumentClick);
         document.addEventListener('mousedown', handleClickOutside);
     }
 
-    // --- State Handlers (The "Reducers") ---
+    // --- State Handlers ---
     function showToast(message) {
         const container = document.getElementById('tb-toast-container');
+        if (!container) return;
         container.innerText = "✓ " + message;
         container.style.display = 'block';
         setTimeout(() => { container.style.display = 'none'; }, 3000);
@@ -167,8 +186,22 @@
         } catch (e) { console.error("TB: Fetch failed", e); }
     }
 
-    // --- Logic: Highlighting (Ported exactly from TSX) ---
+    // --- Logic: Highlighting ---
     function reapplyHighlights(issuesToHighlight) {
+        // 1. Cleanup: Remove existing highlights to avoid duplication
+        document.querySelectorAll('.issue-highlight').forEach(el => {
+            const parent = el.parentNode;
+            if (parent) {
+                while (el.firstChild) parent.insertBefore(el.firstChild, el);
+                parent.removeChild(el);
+            }
+        });
+        document.querySelectorAll('.issue-highlight-image').forEach(img => {
+            img.classList.remove('issue-highlight-image');
+            img.removeAttribute('data-issue-id');
+        });
+
+        // 2. Apply highlights
         issuesToHighlight.forEach(issue => {
             if (!issue.text) return;
 
@@ -180,7 +213,11 @@
                 while (node = walker.nextNode()) {
                     const val = node.nodeValue;
                     if (val && val.includes(issue.text)) {
+                        // Skip if already highlighted
                         if (node.parentElement && node.parentElement.classList.contains('issue-highlight')) continue;
+                        // Skip if inside a textarea or input
+                        if (node.parentElement && (node.parentElement.tagName === 'TEXTAREA' || node.parentElement.tagName === 'INPUT')) continue;
+
                         nodesToHighlight.push({ node, index: val.indexOf(issue.text) });
                     }
                 }
@@ -224,7 +261,6 @@
         if (!text) return;
 
         // --- Robust Collision Detection ---
-        // 1. Check if the selection interacts with ANY existing highlights
         const highlights = document.querySelectorAll('.issue-highlight');
         for (const h of highlights) {
             if (selection.containsNode(h, true) || range.intersectsNode(h)) {
@@ -238,7 +274,7 @@
             }
         }
 
-        // 2. Ancestor check (backup for deep clicks inside spans)
+        // Ancestor check
         let node = range.commonAncestorContainer;
         while (node && node !== document.body) {
             if (node.nodeType === 1 && node.classList.contains('issue-highlight')) {
@@ -253,7 +289,7 @@
             node = node.parentNode;
         }
 
-        // --- NEW ISSUE (Only if no collision) ---
+        // --- NEW ISSUE ---
         state.selectionRange = range.cloneRange();
         state.selectedText = text;
         state.selectionType = 'text';
@@ -273,11 +309,10 @@
             return;
         }
 
-        // 2. Click on image (new selection)
+        // 2. Click on image
         if (target.tagName === 'IMG' && !target.classList.contains('issue-highlight-image')) {
             if (state.showInput || state.showIssueCard) return;
 
-            // Check if this image already has an issue in state (extra safety)
             const reportedSrc = target.src || target.getAttribute('src');
             const existingIssue = state.issues.find(i => i.text.includes(reportedSrc));
             if (existingIssue) {
@@ -313,11 +348,11 @@
         popup.style.width = '320px';
 
         popup.innerHTML = `
-            <div style="padding: 20px 20px 0;">
+            <div style="padding: 24px 24px 0;">
                 <div style="font-size: 10px; font-weight: 800; color: #9ca3af; letter-spacing: 0.1em; margin-bottom: 12px;">NEW ${state.selectionType.toUpperCase()} ISSUE</div>
                 <textarea id="tb-desc-input" class="tb-textarea" rows="4" placeholder="Description"></textarea>
             </div>
-            <div style="padding: 12px 20px 20px; display: flex; justify-content: space-between; align-items: center;">
+            <div style="padding: 12px 24px 24px; display: flex; justify-content: space-between; align-items: center;">
                 <span style="font-size: 11px; color: #d1d5db;">⌘ + Enter to create</span>
                 <button id="tb-submit-btn" class="tb-btn tb-btn-primary">Create Issue</button>
             </div>
@@ -371,7 +406,6 @@
             applyVisualHighlight(newIssue);
             showToast("Issue Created Successfully");
 
-            // Immediately open the card for the new issue
             let targetRect;
             if (state.selectionType === 'image' && state.lastClickedImage) {
                 targetRect = state.lastClickedImage.getBoundingClientRect();
@@ -383,14 +417,13 @@
             if (targetRect) openIssueCard(newIssue, targetRect);
 
         } catch (e) {
-            console.error(e);
             showToast("Failed to create issue");
             btn.innerText = 'Create Issue';
             btn.disabled = false;
         } finally { state.status = 'idle'; }
     }
 
-    // --- Popups: Issue Card (The "Linked Issue" View) ---
+    // --- Popups: Issue Card ---
     function openIssueCard(issue, rect) {
         hidePopups();
         state.showIssueCard = true;
@@ -409,7 +442,7 @@
     function renderCardContent(container, issue, rect) {
         if (state.isEditing) {
             container.innerHTML = `
-                <div style="padding: 20px;">
+                <div style="padding: 24px;">
                     <div style="font-size: 10px; font-weight: 800; color: #9ca3af; margin-bottom: 12px;">EDIT ISSUE</div>
                     <input id="tb-edit-title" class="tb-textarea" style="margin-bottom: 8px; font-weight:600;" value="${issue.title}">
                     <textarea id="tb-edit-body" class="tb-textarea" rows="3" style="font-size:13px;">${issue.description}</textarea>
@@ -419,11 +452,11 @@
                     </div>
                 </div>
             `;
-            document.getElementById('tb-edit-cancel').onclick = () => { state.isEditing = false; renderCardContent(container, issue, rect); };
-            document.getElementById('tb-edit-save').onclick = () => saveIssueEdit(issue, container, rect);
+            container.querySelector('#tb-edit-cancel').onclick = () => { state.isEditing = false; renderCardContent(container, issue, rect); };
+            container.querySelector('#tb-edit-save').onclick = () => saveIssueEdit(issue, container, rect);
         } else if (state.showCommentInput) {
             container.innerHTML = `
-                <div style="padding: 20px;">
+                <div style="padding: 24px;">
                     <div style="font-size: 10px; font-weight: 800; color: #9ca3af; margin-bottom: 12px;">ADD COMMENT — #${issue.issueNumber}</div>
                     <textarea id="tb-comment-text" class="tb-textarea" rows="3" placeholder="Write a comment..." autofocus></textarea>
                     <div style="margin-top: 12px; display: flex; justify-content: flex-end;">
@@ -431,7 +464,7 @@
                     </div>
                 </div>
             `;
-            document.getElementById('tb-comment-submit').onclick = () => submitComment(issue, container, rect);
+            container.querySelector('#tb-comment-submit').onclick = () => submitComment(issue, container, rect);
         } else {
             const isImg = issue.text.startsWith('![');
             container.innerHTML = `
@@ -462,19 +495,18 @@
                     </div>
                 </div>
             `;
-            document.getElementById('tb-edit-trigger').onclick = () => { state.isEditing = true; renderCardContent(container, issue, rect); };
-            document.getElementById('tb-comment-trigger').onclick = () => { state.showCommentInput = true; renderCardContent(container, issue, rect); };
-            document.getElementById('tb-view-github').onclick = () => window.open(issue.issueUrl, '_blank');
-            document.getElementById('tb-close-issue').onclick = () => closeCurrentIssue(issue);
+            container.querySelector('#tb-edit-trigger').onclick = () => { state.isEditing = true; renderCardContent(container, issue, rect); };
+            container.querySelector('#tb-comment-trigger').onclick = () => { state.showCommentInput = true; renderCardContent(container, issue, rect); };
+            container.querySelector('#tb-view-github').onclick = () => window.open(issue.issueUrl, '_blank');
+            container.querySelector('#tb-close-issue').onclick = () => closeCurrentIssue(issue);
         }
     }
 
-    // --- Actions: Update, Comment, Close ---
+    // --- Actions ---
     async function saveIssueEdit(issue, container, rect) {
         const title = document.getElementById('tb-edit-title').value.trim();
         const body = document.getElementById('tb-edit-body').value.trim();
         if (!title || !body) return;
-
         try {
             const res = await fetch(`${API_BASE}/update`, {
                 method: 'POST',
@@ -482,7 +514,6 @@
                 body: JSON.stringify({ number: issue.issueNumber, title, body })
             });
             if (!res.ok) throw new Error();
-
             issue.title = title;
             issue.description = body;
             state.isEditing = false;
@@ -494,7 +525,6 @@
     async function submitComment(issue, container, rect) {
         const text = document.getElementById('tb-comment-text').value.trim();
         if (!text) return;
-
         try {
             const res = await fetch(`${API_BASE}/comment`, {
                 method: 'POST',
@@ -502,7 +532,6 @@
                 body: JSON.stringify({ number: issue.issueNumber, comment: text })
             });
             if (!res.ok) throw new Error();
-
             state.showCommentInput = false;
             showToast("Comment Added Successfully");
             renderCardContent(container, issue, rect);
@@ -518,36 +547,20 @@
                 body: JSON.stringify({ number: issue.issueNumber })
             });
             if (!res.ok) throw new Error();
-
-            // 1. Remove highlight from DOM
-            document.querySelectorAll(`[data-issue-id="${issue.id}"]`).forEach(el => {
-                if (el.classList.contains('issue-highlight')) {
-                    const parent = el.parentNode;
-                    while (el.firstChild) parent.insertBefore(el.firstChild, el);
-                    parent.removeChild(el);
-                } else {
-                    el.classList.remove('issue-highlight-image');
-                    el.removeAttribute('data-issue-id');
-                    el.style.outline = 'none';
-                }
-            });
-
-            // 2. Remove from state
             state.issues = state.issues.filter(i => i.id !== issue.id);
+            // Refresh highlights on current page
+            reapplyHighlights(state.issues);
             hidePopups();
             showToast("Issue Closed Successfully");
         } catch (e) { showToast("Failed to close issue"); }
     }
 
-    // --- Visual: Apply Highlight ---
     function applyVisualHighlight(issue) {
         if (state.selectionType === 'image' && state.lastClickedImage) {
-            const img = state.lastClickedImage;
-            img.classList.add('issue-highlight-image');
-            img.setAttribute('data-issue-id', issue.id);
+            state.lastClickedImage.classList.add('issue-highlight-image');
+            state.lastClickedImage.setAttribute('data-issue-id', issue.id);
             return;
         }
-
         if (state.selectionRange) {
             const span = document.createElement('span');
             span.className = 'issue-highlight';
@@ -562,13 +575,11 @@
         }
     }
 
-    // --- Helper: Position ---
     function positionPopup(popup, rect) {
-        const scrollY = window.scrollY;
-        let top = rect.top + scrollY - popup.offsetHeight - 15;
+        let top = rect.top - popup.offsetHeight - 15;
         let left = rect.left + (rect.width / 2) - (popup.offsetWidth / 2);
 
-        if (top < scrollY + 10) top = rect.bottom + scrollY + 15;
+        if (top < 10) top = rect.bottom + 15;
         left = Math.max(10, Math.min(left, window.innerWidth - popup.offsetWidth - 10));
         top = Math.max(10, top);
 
@@ -577,21 +588,10 @@
     }
 
     // --- Initialize & Docsify Integration ---
-    function init() {
-        injectStyles();
-        createDOMElements();
-        fetchIssues();
-        bindEvents();
-    }
-
-    // Register as a Docsify plugin to handle page navigations
     if (window.$docsify) {
         window.$docsify.plugins = [].concat(window.$docsify.plugins || [], function (hook, vm) {
             hook.doneEach(function () {
-                // Re-apply highlights every time Docsify finishes rendering a page
-                if (state.issues.length > 0) {
-                    reapplyHighlights(state.issues);
-                }
+                if (state.issues.length > 0) reapplyHighlights(state.issues);
             });
         });
     }
