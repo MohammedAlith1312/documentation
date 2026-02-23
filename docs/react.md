@@ -1,5 +1,5 @@
 ---
-title: React
+title: React Basics
 slug: /react
 content: |-
   ## Learn React
