@@ -32,33 +32,39 @@ async function getOctokit(owner) {
     return await githubApp.getInstallationOctokit(targetInstallId);
 }
 
-// POST /api/issues/create
+// POST /api/issues/close
 module.exports = async function handler(req, res) {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+    if (req.method === 'OPTIONS') {
+        res.status(200).end();
+        return;
+    }
+
     if (req.method !== 'POST') {
         return res.status(405).json({ error: 'Method Not Allowed' });
     }
     try {
-        const { title, body } = req.body;
-        if (!title || !body) {
-            return res.status(400).json({ error: 'Missing title or body' });
+        const { number } = req.body;
+        if (!number) {
+            return res.status(400).json({ error: 'Missing issue number' });
         }
 
         const owner = process.env.GITHUB_OWNER;
         const repo = process.env.GITHUB_REPO;
-        if (!owner || !repo) {
-            return res.status(500).json({ error: 'GITHUB_OWNER or GITHUB_REPO not set' });
-        }
 
         const octokit = await getOctokit(owner);
-        const response = await octokit.rest.issues.create({ owner, repo, title, body });
-
-        res.status(200).json({
-            success: true,
-            url: response.data.html_url,
-            number: response.data.number,
+        await octokit.rest.issues.update({
+            owner, repo,
+            issue_number: number,
+            state: 'closed',
         });
+
+        res.status(200).json({ success: true });
     } catch (error) {
-        console.error('Create Error:', error.message);
-        res.status(500).json({ error: error.message || 'Failed to create issue' });
+        console.error('Close Error:', error.message);
+        res.status(500).json({ error: error.message || 'Failed to close issue' });
     }
 };

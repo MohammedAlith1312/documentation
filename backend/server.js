@@ -11,8 +11,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Serve Docsify static site from public/
-app.use(express.static(path.join(__dirname, "docs")));
+// Backend API Only (Static site served by docs.js)
 
 const PORT = process.env.PORT || 3000;
 
