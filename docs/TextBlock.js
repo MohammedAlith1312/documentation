@@ -43,7 +43,7 @@
         style.id = 'tb-styles';
         style.textContent = `
             .issue-highlight {
-                background-color: #a3a7b0ff;
+                background-color: #a3a7b0ff;                 
                 color: black;
                 cursor: pointer;
                 border-radius: 5px;
@@ -217,34 +217,48 @@
         if (state.showInput || state.showIssueCard) return;
 
         const selection = window.getSelection();
+        if (!selection || selection.rangeCount === 0) return;
 
-        // Collision Detection: Are we inside an existing highlight?
-        if (selection && selection.rangeCount > 0) {
-            const range = selection.getRangeAt(0);
-            let node = range.commonAncestorContainer;
-            while (node && node !== document.body) {
-                if (node.nodeType === 1 && node.classList.contains('issue-highlight')) {
-                    const issueId = node.getAttribute('data-issue-id');
-                    const issue = state.issues.find(i => i.id === issueId);
-                    if (issue) {
-                        selection.removeAllRanges();
-                        openIssueCard(issue, node.getBoundingClientRect());
-                        return;
-                    }
+        const range = selection.getRangeAt(0);
+        const text = selection.toString().trim();
+        if (!text) return;
+
+        // --- Robust Collision Detection ---
+        // 1. Check if the selection interacts with ANY existing highlights
+        const highlights = document.querySelectorAll('.issue-highlight');
+        for (const h of highlights) {
+            if (selection.containsNode(h, true) || range.intersectsNode(h)) {
+                const issueId = h.getAttribute('data-issue-id');
+                const issue = state.issues.find(i => i.id === issueId);
+                if (issue) {
+                    selection.removeAllRanges();
+                    openIssueCard(issue, h.getBoundingClientRect());
+                    return;
                 }
-                node = node.parentNode;
             }
         }
 
-        const text = selection?.toString().trim();
-        if (text && text.length > 0) {
-            const range = selection.getRangeAt(0);
-            state.selectionRange = range.cloneRange();
-            state.selectedText = text;
-            state.selectionType = 'text';
-            state.lastClickedImage = null;
-            openCreationForm(range.getBoundingClientRect());
+        // 2. Ancestor check (backup for deep clicks inside spans)
+        let node = range.commonAncestorContainer;
+        while (node && node !== document.body) {
+            if (node.nodeType === 1 && node.classList.contains('issue-highlight')) {
+                const issueId = node.getAttribute('data-issue-id');
+                const issue = state.issues.find(i => i.id === issueId);
+                if (issue) {
+                    selection.removeAllRanges();
+                    openIssueCard(issue, node.getBoundingClientRect());
+                    return;
+                }
+            }
+            node = node.parentNode;
         }
+
+        // --- NEW ISSUE (Only if no collision) ---
+        state.selectionRange = range.cloneRange();
+        state.selectedText = text;
+        state.selectionType = 'text';
+        state.lastClickedImage = null;
+        openCreationForm(range.getBoundingClientRect());
     }
 
     function onDocumentClick(e) {
@@ -262,6 +276,15 @@
         // 2. Click on image (new selection)
         if (target.tagName === 'IMG' && !target.classList.contains('issue-highlight-image')) {
             if (state.showInput || state.showIssueCard) return;
+
+            // Check if this image already has an issue in state (extra safety)
+            const reportedSrc = target.src || target.getAttribute('src');
+            const existingIssue = state.issues.find(i => i.text.includes(reportedSrc));
+            if (existingIssue) {
+                openIssueCard(existingIssue, target.getBoundingClientRect());
+                return;
+            }
+
             e.preventDefault();
             const img = target;
             state.selectionType = 'image';
@@ -553,7 +576,26 @@
         popup.style.left = left + 'px';
     }
 
-    // --- Initialize ---
+    // --- Initialize & Docsify Integration ---
+    function init() {
+        injectStyles();
+        createDOMElements();
+        fetchIssues();
+        bindEvents();
+    }
+
+    // Register as a Docsify plugin to handle page navigations
+    if (window.$docsify) {
+        window.$docsify.plugins = [].concat(window.$docsify.plugins || [], function (hook, vm) {
+            hook.doneEach(function () {
+                // Re-apply highlights every time Docsify finishes rendering a page
+                if (state.issues.length > 0) {
+                    reapplyHighlights(state.issues);
+                }
+            });
+        });
+    }
+
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);
     } else {
