@@ -1,6 +1,5 @@
 ---
-title: _nav
-slug: /_nav
+slug: _nav
 content: |-
   \- \[Home\](/)
 
