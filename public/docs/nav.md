@@ -1,10 +1,10 @@
 ---
-title: _nav.md
-slug: /nav
+title: _nav
+slug: /_nav
 content: |-
-  ```markdown
-  - [Home](/)
-  - [React Basics](react.md)
-  - [React Hooks](react-hooks.md)
-  ```
+  \- \[Home\](/)
+
+  \- \[React Basics\](react.md)
+
+  \- \[React Hooks\](react-hooks.md)
 ---
