@@ -10,7 +10,7 @@ content:
   # ===Pages ===
   - name: pages
     label: React Docs
-    path: docs
+    path: frontend/docs
     type: collection
     format:  yaml-frontmatter
     filename: "{fields.slug}.md" # This allows files like simple-react-learn.json
