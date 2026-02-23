@@ -7,8 +7,8 @@
 (function () {
     // Use absolute URL for the backend since it runs on a different port (3000) than the frontend (5000)
     const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-        ? 'http://localhost:3000/api/issues'
-        : '/api/issues';
+        ? 'https://documentation-34fr.onrender.com/api/issues'
+        : 'https://documentation-34fr.onrender.com/api/issues';
 
     // --- Configuration & State ---
     const state = {
