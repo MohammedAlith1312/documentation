@@ -7,25 +7,6 @@ content:
 
   # === REACT DOCUMENTATION COLLECTION ===
 
-  # === navbar ===
-  - name: navar
-    label: navbar
-    path: public/docs
-    type: file
-    format:  yaml-frontmatter
-    filename: "{fields.slug}.md
-
-    fields:
-     - name: slug
-       label: URL Slug
-       type: string
-       required: true
-   
-    
-     - name: content
-       label: Full Page Content
-       type: rich-text # This gives you the entire page area for your docs
-       required: true
     
   
   # ===Pages ===
@@ -39,18 +20,17 @@ content:
       - name: title
         label: Document Title
         type: string
-        required: true
+        
 
       - name: slug
         label: URL Slug
         type: string
-        required: true
+      
 
       - name: content
         label: Full Page Content
         type: rich-text # This gives you the entire page area for your docs
-        required: true
-
+  
 
 
   
