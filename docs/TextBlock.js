@@ -26,6 +26,16 @@
     function init() {
         injectStyles();
         createDOMElements();
+
+        // Load from cache for instant "No flicker" display
+        const cached = localStorage.getItem('tb_issues_cache');
+        if (cached) {
+            try {
+                state.issues = JSON.parse(cached);
+                console.log("TB: Loaded from cache", state.issues.length);
+            } catch (e) { }
+        }
+
         fetchIssues();
         bindEvents();
         setupNavigationObserver();
@@ -122,19 +132,19 @@
     function setupNavigationObserver() {
         const targetNode = document.getElementById('app') || document.body;
         _navObserver = new MutationObserver((mutations) => {
-            // Check if any significant change happened (not just our own spans)
             const hasRealChanges = mutations.some(m => {
                 if (m.target && (m.target.classList?.contains('issue-highlight') || m.target.parentElement?.classList?.contains('issue-highlight'))) return false;
+                // Docsify's loading bar or sidebar changes shouldn't trigger full repaint
+                if (m.target?.id === 'docsify-loading-bar' || m.target?.classList?.contains('sidebar')) return false;
                 return true;
             });
 
             if (hasRealChanges && state.issues.length > 0) {
                 clearTimeout(window._tb_nav_timer);
                 window._tb_nav_timer = setTimeout(() => {
-                    if (_navObserver) _navObserver.disconnect();
+                    // Only reapply if content is actually stable
                     reapplyHighlights(state.issues);
-                    if (_navObserver) _navObserver.observe(targetNode, { childList: true, subtree: true });
-                }, 200);
+                }, 300);
             }
         });
         _navObserver.observe(targetNode, { childList: true, subtree: true });
@@ -173,27 +183,41 @@
             const res = await fetch(`${API_BASE}/list`);
             const data = await res.json();
             if (data.issues) {
-                state.issues = data.issues.map(i => ({
-                    id: i.id,
+                const newIssues = data.issues.map(i => ({
+                    id: `issue-${i.issueNumber}`, // Stable ID
                     text: i.selectedText,
                     issueUrl: i.url,
                     issueNumber: i.issueNumber,
                     title: i.title,
                     description: i.body
                 }));
-                reapplyHighlights(state.issues);
+
+                // Optimization: Only redraw if data changed
+                const currentData = JSON.stringify(state.issues);
+                const fetchedData = JSON.stringify(newIssues);
+
+                if (currentData !== fetchedData) {
+                    console.log("TB: Data Synced with GitHub");
+                    state.issues = newIssues;
+                    localStorage.setItem('tb_issues_cache', fetchedData);
+                    reapplyHighlights(state.issues);
+                }
             }
         } catch (e) { console.error("TB: Fetch failed", e); }
     }
 
     // --- Logic: Highlighting ---
     function reapplyHighlights(issuesToHighlight) {
-        // 1. Cleanup: Remove existing highlights to avoid duplication
-        document.querySelectorAll('.issue-highlight').forEach(el => {
+        // 1. Cleanup: Remove existing highlights cleanly
+        const existing = document.querySelectorAll('.issue-highlight');
+        existing.forEach(el => {
             const parent = el.parentNode;
             if (parent) {
-                while (el.firstChild) parent.insertBefore(el.firstChild, el);
+                const textNodes = [];
+                el.childNodes.forEach(child => textNodes.push(child));
+                textNodes.forEach(tn => parent.insertBefore(tn, el));
                 parent.removeChild(el);
+                parent.normalize(); // Cleanup fragmented text nodes
             }
         });
         document.querySelectorAll('.issue-highlight-image').forEach(img => {
@@ -387,14 +411,14 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     title: shortTitle || "New Issue",
-                    body: `**Description:**\n${bodyContent}\n\n**Selected ${state.selectionType}:**\n${state.selectionType === 'image' ? '' : '> '}${state.selectedText}\n\n**URL:**\n${window.location.href}`
+                    body: `**Description:**\n${bodyContent}\n\n**Selected ${state.selectionType === 'image' ? 'Image' : 'Text'}:**\n${state.selectionType === 'image' ? '' : '> '}${state.selectedText}\n\n**URL:**\n${window.location.href}`
                 })
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error);
 
             const newIssue = {
-                id: `issue-${Date.now()}`,
+                id: `issue-${data.number}`, // Stable ID
                 text: state.selectedText,
                 issueUrl: data.url,
                 issueNumber: data.number,
@@ -403,6 +427,7 @@
             };
 
             state.issues.push(newIssue);
+            localStorage.setItem('tb_issues_cache', JSON.stringify(state.issues));
             applyVisualHighlight(newIssue);
             showToast("Issue Created Successfully");
 
@@ -517,6 +542,7 @@
             issue.title = title;
             issue.description = body;
             state.isEditing = false;
+            localStorage.setItem('tb_issues_cache', JSON.stringify(state.issues));
             showToast("Issue Updated Successfully");
             renderCardContent(container, issue, rect);
         } catch (e) { showToast("Failed to update issue"); }
@@ -548,6 +574,7 @@
             });
             if (!res.ok) throw new Error();
             state.issues = state.issues.filter(i => i.id !== issue.id);
+            localStorage.setItem('tb_issues_cache', JSON.stringify(state.issues));
             // Refresh highlights on current page
             reapplyHighlights(state.issues);
             hidePopups();
@@ -590,8 +617,19 @@
     // --- Initialize & Docsify Integration ---
     if (window.$docsify) {
         window.$docsify.plugins = [].concat(window.$docsify.plugins || [], function (hook, vm) {
-            hook.doneEach(function () {
+            // Trigger 1: When the entire site is fully loaded (Refresh case)
+            hook.ready(function () {
+                console.log("TB: Docsify Ready");
                 if (state.issues.length > 0) reapplyHighlights(state.issues);
+            });
+
+            // Trigger 2: Every time navigation happens or content updates
+            hook.doneEach(function () {
+                console.log("TB: Page Content Updated");
+                // Small buffer to allow Docsify to finish physical DOM injection
+                setTimeout(() => {
+                    if (state.issues.length > 0) reapplyHighlights(state.issues);
+                }, 150);
             });
         });
     }

@@ -56,12 +56,16 @@ module.exports = async function handler(req, res) {
         const issues = data.map(issue => {
             const body = issue.body || '';
             let extractedText = '';
-            if (body.includes('**Selected Text:**\n> ')) {
-                extractedText = body.split('**Selected Text:**\n> ')[1]?.split('\n')[0]?.trim() || '';
-            } else if (body.includes('**Selected Context:**\n> ')) {
-                extractedText = body.split('**Selected Context:**\n> ')[1]?.split('\n')[0]?.trim() || '';
-            } else if (body.includes('**Selected Image:**\n')) {
-                extractedText = body.split('**Selected Image:**\n')[1]?.split('\n')[0]?.trim() || '';
+            const textMatch = body.match(/\*\*Selected (?:Text|text):\*\*\n>\s*(.*)/);
+            const contextMatch = body.match(/\*\*Selected (?:Context|context):\*\*\n>\s*(.*)/);
+            const imageMatch = body.match(/\*\*Selected (?:Image|image):\*\*\n\s*(.*)/);
+
+            if (textMatch) {
+                extractedText = textMatch[1].trim();
+            } else if (contextMatch) {
+                extractedText = contextMatch[1].trim();
+            } else if (imageMatch) {
+                extractedText = imageMatch[1].trim();
             }
             return {
                 id: `issue-${issue.id}`,
