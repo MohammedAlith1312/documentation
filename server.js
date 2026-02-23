@@ -12,7 +12,7 @@ app.use(cors());
 app.use(express.json());
 
 // Serve Docsify static site from public/
-app.use(express.static(path.join(__dirname, "public")));
+app.use(express.static(path.join(__dirname, "public/docs")));
 
 const PORT = process.env.PORT || 3000;
 
