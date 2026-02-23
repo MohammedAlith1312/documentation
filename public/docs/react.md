@@ -10,8 +10,8 @@ content: |-
       
   *   React allows us to create reusable UI components.
       
-      ````
-      ``` import { createRoot } from 'react-dom/client'.
+      ```
+      import { createRoot } from 'react-dom/client'.
       function Hello() { return (
       
       Hello World!
@@ -21,5 +21,5 @@ content: |-
       createRoot(document.getElementById('root')).render(
             <Hello />
           );
-      ````
+      ```
 ---
