@@ -2,16 +2,13 @@ const express = require("express");
 const cors = require("cors");
 const { App } = require("octokit");
 const dotenv = require("dotenv");
+const path = require("path");
 
 dotenv.config();
-
-const path = require("path");
 
 const app = express();
 app.use(cors());
 app.use(express.json());
-
-// Backend API Only (Static site served by docs.js)
 
 const PORT = process.env.PORT || 3000;
 
@@ -21,26 +18,19 @@ async function getOctokit(owner) {
     const privateKey = process.env.GITHUB_APP_PRIVATE_KEY;
 
     if (!appId || !privateKey) {
-        throw new Error("Missing GitHub authentication credentials (GITHUB_APP_ID or GITHUB_APP_PRIVATE_KEY)");
+        throw new Error("Missing GitHub credentials (GITHUB_APP_ID or GITHUB_APP_PRIVATE_KEY)");
     }
 
     try {
-        // Normalize the private key:
-        // dotenv multiline quotes give real \n already — but single-line escaped gives \\n
-        // This handles both safely.
-        const normalizedKey = privateKey
-            .replace(/\\n/g, '\n')   // convert escaped \n to real newlines
-            .trim();                  // remove any leading/trailing whitespace
-
+        const normalizedKey = privateKey.replace(/\\n/g, '\n').trim();
         const githubApp = new App({
-            appId: parseInt(appId, 10),   // App ID must be a number, not a string
+            appId: parseInt(appId, 10),
             privateKey: normalizedKey,
         });
 
-        // Auto-discover installation
         const { data: installations } = await githubApp.octokit.rest.apps.listInstallations();
-
         let targetInstallId;
+
         if (owner) {
             const match = installations.find((i) => i.account?.login === owner);
             if (match) targetInstallId = match.id;
@@ -51,7 +41,7 @@ async function getOctokit(owner) {
         }
 
         if (!targetInstallId) {
-            throw new Error("No installation found for this GitHub App. Please install it on your repository.");
+            throw new Error("No installation found for this GitHub App.");
         }
 
         return await githubApp.getInstallationOctokit(targetInstallId);
@@ -61,41 +51,51 @@ async function getOctokit(owner) {
     }
 }
 
-// 1. List Issues
+// 1. List Issues (All: Open & Closed)
 app.get("/api/issues/list", async (req, res) => {
     try {
         const owner = process.env.GITHUB_OWNER;
         const repo = process.env.GITHUB_REPO;
         const octokit = await getOctokit(owner);
 
-        const { data } = await octokit.rest.issues.listForRepo({
+        console.log(`TB: Fetching all issues for ${owner}/${repo}...`);
+
+        const data = await octokit.paginate("GET /repos/{owner}/{repo}/issues", {
             owner,
             repo,
-            state: 'open',
+            state: 'all',
             per_page: 100
         });
 
-        const issues = data.map(issue => {
-            const body = issue.body || '';
-            let extractedText = '';
-            if (body.includes('**Selected Text:**\n> ')) {
-                extractedText = body.split('**Selected Text:**\n> ')[1]?.split('\n')[0]?.trim() || '';
-            } else if (body.includes('**Selected Image:**\n')) {
-                extractedText = body.split('**Selected Image:**\n')[1]?.split('\n')[0]?.trim() || '';
-            }
-            return {
-                id: `issue-${issue.id}`,
-                issueNumber: issue.number,
-                title: issue.title,
-                body: body,
-                url: issue.html_url,
-                selectedText: extractedText
-            };
-        }).filter(i => i.selectedText && i.selectedText.length > 0);
+        const issues = data
+            .filter(i => !i.pull_request)
+            .map(issue => {
+                const body = issue.body || '';
+                let extractedText = '';
+
+                const contextMatch = body.match(/\*\*(?:Selected Context|Selected Text|Selected Image):\*\*\n(>\s*|)(.*)/i);
+                if (contextMatch) {
+                    extractedText = contextMatch[2].trim();
+                } else {
+                    if (body.includes('**Selected Text:**\n> ')) extractedText = body.split('**Selected Text:**\n> ')[1]?.split('\n')[0]?.trim();
+                    else if (body.includes('**Selected Image:**\n')) extractedText = body.split('**Selected Image:**\n')[1]?.split('\n')[0]?.trim();
+                }
+
+                return {
+                    id: `issue-${issue.id}`,
+                    issueNumber: issue.number,
+                    title: issue.title,
+                    body: body,
+                    url: issue.html_url,
+                    selectedText: extractedText || 'No direct text reference',
+                    state: (issue.state || 'open').toLowerCase()
+                };
+            });
 
         res.json({ issues });
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        console.error("TB List Error:", error);
+        res.status(500).json({ error: error.message || "Failed to list issues" });
     }
 });
 
@@ -106,22 +106,9 @@ app.post("/api/issues/create", async (req, res) => {
         const owner = process.env.GITHUB_OWNER;
         const repo = process.env.GITHUB_REPO;
         const octokit = await getOctokit(owner);
-
-        const response = await octokit.rest.issues.create({
-            owner,
-            repo,
-            title,
-            body,
-        });
-
-        res.json({
-            success: true,
-            url: response.data.html_url,
-            number: response.data.number
-        });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
+        const response = await octokit.rest.issues.create({ owner, repo, title, body });
+        res.json({ success: true, url: response.data.html_url, number: response.data.number });
+    } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
 // 3. Comment on Issue
@@ -131,18 +118,9 @@ app.post("/api/issues/comment", async (req, res) => {
         const owner = process.env.GITHUB_OWNER;
         const repo = process.env.GITHUB_REPO;
         const octokit = await getOctokit(owner);
-
-        const response = await octokit.rest.issues.createComment({
-            owner,
-            repo,
-            issue_number: number,
-            body: comment,
-        });
-
+        const response = await octokit.rest.issues.createComment({ owner, repo, issue_number: number, body: comment });
         res.json({ success: true, data: response.data });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
+    } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
 // 4. Close Issue
@@ -152,18 +130,9 @@ app.post("/api/issues/close", async (req, res) => {
         const owner = process.env.GITHUB_OWNER;
         const repo = process.env.GITHUB_REPO;
         const octokit = await getOctokit(owner);
-
-        await octokit.rest.issues.update({
-            owner,
-            repo,
-            issue_number: number,
-            state: "closed",
-        });
-
+        await octokit.rest.issues.update({ owner, repo, issue_number: number, state: "closed" });
         res.json({ success: true });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
+    } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
 // 5. Update Issue
@@ -173,19 +142,9 @@ app.post("/api/issues/update", async (req, res) => {
         const owner = process.env.GITHUB_OWNER;
         const repo = process.env.GITHUB_REPO;
         const octokit = await getOctokit(owner);
-
-        const response = await octokit.rest.issues.update({
-            owner,
-            repo,
-            issue_number: number,
-            title,
-            body
-        });
-
+        const response = await octokit.rest.issues.update({ owner, repo, issue_number: number, title, body });
         res.json({ success: true, data: response.data });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
+    } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
 app.listen(PORT, () => {

@@ -56,9 +56,9 @@ module.exports = async function handler(req, res) {
 
         const octokit = await getOctokit(owner);
 
-        const { data } = await octokit.rest.issues.listForRepo({
+        const data = await octokit.paginate(octokit.rest.issues.listForRepo, {
             owner, repo,
-            state: 'open',
+            state: 'all',
             per_page: 100,
         });
 
@@ -82,9 +82,11 @@ module.exports = async function handler(req, res) {
                 title: issue.title,
                 body,
                 url: issue.html_url,
-                selectedText: extractedText,
+                selectedText: extractedText || 'No direct text reference',
+                state: (issue.state || 'open').toLowerCase(),
+                isPullRequest: !!issue.pull_request
             };
-        }).filter(i => i.selectedText && i.selectedText.length > 0);
+        });
 
         res.status(200).json({ issues });
     } catch (error) {

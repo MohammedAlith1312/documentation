@@ -5,12 +5,11 @@
  */
 
 (function () {
-    // Use absolute URL for the backend since it runs on a different port (3000) than the frontend (5000)
+    // --- Configuration & State ---
     const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-        ? 'https://documentation-34fr.onrender.com/api/issues'
+        ? 'http://localhost:3000/api/issues'
         : 'https://documentation-34fr.onrender.com/api/issues';
 
-    // --- Configuration & State ---
     const state = {
         issues: [],
         status: 'idle',           // 'idle' | 'submitting'
@@ -89,19 +88,21 @@
                 width: 100%; box-sizing: border-box;
                 border: 1px solid #f3f4f6; border-radius: 16px;
                 padding: 12px; font-size: 15px; resize: none;
-                focus: outline: none; color: #1f2937;
+                color: #1f2937;
             }
+            .tb-textarea:focus { outline: none; border-color: #3b82f6; }
 
             .tb-btn {
                 border: none; cursor: pointer; font-weight: 600; font-size: 14px;
                 padding: 10px 20px; border-radius: 14px; transition: all 0.2s;
             }
             .tb-btn-primary { background: #111; color: white; }
-            .tb-btn-primary:hover { background: #000; }
-            .tb-btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+            .tb-btn-primary:active { transform: translateY(0); }
             
             .tb-btn-secondary { background: #f3f4f6; color: #111; border: 1px solid #e5e7eb; }
+            .tb-btn-secondary:hover { background: #e5e7eb; }
             .tb-btn-danger { background: #fff1f2; color: #ef4444; }
+            .tb-btn-danger:hover { background: #fee2e2; }
             
             .tb-toast {
                 position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%);
@@ -115,8 +116,61 @@
             .tb-icon-btn {
                 background: none; border: none; cursor: pointer; padding: 6px;
                 border-radius: 50%; color: #9ca3af; transition: all 0.2s;
+                display: flex; align-items: center; justify-content: center;
             }
             .tb-icon-btn:hover { background: #f3f4f6; color: #3b82f6; }
+
+            /* Sidebar Styles - Single Column Dashboard */
+            .tb-sidebar {
+                position: fixed; top: 0; right: -420px; width: 400px; height: 100%;
+                background: #fcfcfc; box-shadow: -20px 0 60px rgba(0,0,0,0.15);
+                z-index: 10000; transition: right 0.4s cubic-bezier(0.19, 1, 0.22, 1);
+                display: flex; flex-direction: column;
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+            }
+            .tb-sidebar.open { right: 0; }
+            .tb-sidebar-header {
+                padding: 20px 32px; background: white; border-bottom: 1px solid #eee;
+                display: flex; justify-content: space-between; align-items: center;
+                flex-shrink: 0;
+            }
+            .tb-sidebar-content { 
+                flex: 1; overflow-y: auto; display: flex; flex-direction: column;
+            }
+            
+            .tb-column-header {
+                padding: 16px 24px; font-size: 11px; font-weight: 800; color: #9ca3af;
+                letter-spacing: 0.1em; text-transform: uppercase; border-bottom: 1px solid #f0f0f0;
+                background: #f9fafb; position: sticky; top: 0; z-index: 10;
+                display: flex; justify-content: space-between; align-items: center;
+            }
+            .tb-section-content {
+                padding: 20px;
+            }
+            
+            .tb-issue-item {
+                background: white; padding: 16px; border: 1px solid #eef0f2; border-radius: 14px;
+                margin-bottom: 12px; cursor: pointer; transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+                box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+            }
+            .tb-issue-item:hover { 
+                border-color: #3b82f6; transform: translateY(-3px) scale(1.01); 
+                box-shadow: 0 10px 20px rgba(59, 130, 246, 0.1); 
+            }
+            
+            .tb-badge-open { background: #ecfdf5; color: #10b981; }
+            .tb-badge-closed { background: #f3f4f6; color: #6b7280; }
+
+            .tb-floating-btn {
+                position: fixed; bottom: 30px; right: 30px; z-index: 9998;
+                background: #111; color: white; border: none; border-radius: 50px;
+                padding: 12px 24px; font-weight: 600; cursor: pointer;
+                box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+                display: flex; align-items: center; gap: 8px;
+                transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+            }
+            .tb-floating-btn:hover { transform: translateY(-4px) scale(1.02); background: #000; box-shadow: 0 15px 35px rgba(0,0,0,0.3); }
         `;
         document.head.appendChild(style);
     }
@@ -128,16 +182,28 @@
             toast.className = 'tb-toast';
             document.body.appendChild(toast);
         }
+
+        if (!document.getElementById('tb-floating-btn')) {
+            const btn = document.createElement('button');
+            btn.id = 'tb-floating-btn';
+            btn.className = 'tb-floating-btn';
+            btn.innerHTML = `
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                </svg>
+                <span>Issues</span>
+            `;
+            btn.onclick = () => openSidebar();
+            document.body.appendChild(btn);
+        }
     }
 
     // --- Navigation Support: MutationObserver ---
-    let _navObserver = null;
     function setupNavigationObserver() {
         const targetNode = document.getElementById('app') || document.body;
-        _navObserver = new MutationObserver((mutations) => {
+        const observer = new MutationObserver((mutations) => {
             const hasRealChanges = mutations.some(m => {
                 if (m.target && (m.target.classList?.contains('issue-highlight') || m.target.parentElement?.classList?.contains('issue-highlight'))) return false;
-                // Docsify's loading bar or sidebar changes shouldn't trigger full repaint
                 if (m.target?.id === 'docsify-loading-bar' || m.target?.classList?.contains('sidebar')) return false;
                 return true;
             });
@@ -145,12 +211,11 @@
             if (hasRealChanges && state.issues.length > 0) {
                 clearTimeout(window._tb_nav_timer);
                 window._tb_nav_timer = setTimeout(() => {
-                    // Only reapply if content is actually stable
                     reapplyHighlights(state.issues);
                 }, 300);
             }
         });
-        _navObserver.observe(targetNode, { childList: true, subtree: true });
+        observer.observe(targetNode, { childList: true, subtree: true });
     }
 
     // --- Event Binding ---
@@ -183,35 +248,41 @@
     // --- Core Logic: Fetching ---
     async function fetchIssues() {
         try {
+            console.log("TB: Requesting issues from", `${API_BASE}/list`);
             const res = await fetch(`${API_BASE}/list`);
+
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.error || `Server responded with ${res.status}`);
+            }
+
             const data = await res.json();
             if (data.issues) {
                 const newIssues = data.issues.map(i => ({
-                    id: `issue-${i.issueNumber}`, // Stable ID
-                    text: i.selectedText,
-                    issueUrl: i.url,
-                    issueNumber: i.issueNumber,
-                    title: i.title,
-                    description: i.body
+                    id: i.id,
+                    text: i.selectedText || '',
+                    issueUrl: i.url || '#',
+                    issueNumber: i.issueNumber || 0,
+                    title: i.title || 'No Title',
+                    description: i.body || 'No description provided',
+                    state: (i.state || 'open').toLowerCase()
                 }));
 
-                // Optimization: Only redraw if data changed
-                const currentData = JSON.stringify(state.issues);
-                const fetchedData = JSON.stringify(newIssues);
+                state.issues = newIssues;
+                localStorage.setItem('tb_issues_cache', JSON.stringify(newIssues));
+                reapplyHighlights(state.issues);
 
-                if (currentData !== fetchedData) {
-                    console.log("TB: Data Synced with GitHub");
-                    state.issues = newIssues;
-                    localStorage.setItem('tb_issues_cache', fetchedData);
-                    reapplyHighlights(state.issues);
-                }
+                const sidebar = document.getElementById('tb-sidebar');
+                if (sidebar && sidebar.classList.contains('open')) openSidebar();
             }
-        } catch (e) { console.error("TB: Fetch failed", e); }
+        } catch (e) {
+            console.error("TB: Sync Failure Detail:", e);
+            showToast(`Sync Error: ${e.message}`);
+        }
     }
 
     // --- Logic: Highlighting ---
     function reapplyHighlights(issuesToHighlight) {
-        // 1. Cleanup: Remove existing highlights cleanly
         const existing = document.querySelectorAll('.issue-highlight');
         existing.forEach(el => {
             const parent = el.parentNode;
@@ -220,7 +291,7 @@
                 el.childNodes.forEach(child => textNodes.push(child));
                 textNodes.forEach(tn => parent.insertBefore(tn, el));
                 parent.removeChild(el);
-                parent.normalize(); // Cleanup fragmented text nodes
+                parent.normalize();
             }
         });
         document.querySelectorAll('.issue-highlight-image').forEach(img => {
@@ -228,9 +299,8 @@
             img.removeAttribute('data-issue-id');
         });
 
-        // 2. Apply highlights
         issuesToHighlight.forEach(issue => {
-            if (!issue.text) return;
+            if (!issue.text || issue.state === 'closed' || issue.text === 'No direct text reference') return;
 
             if (!issue.text.startsWith('![')) {
                 // Text Highlight
@@ -240,11 +310,8 @@
                 while (node = walker.nextNode()) {
                     const val = node.nodeValue;
                     if (val && val.includes(issue.text)) {
-                        // Skip if already highlighted
                         if (node.parentElement && node.parentElement.classList.contains('issue-highlight')) continue;
-                        // Skip if inside a textarea or input
                         if (node.parentElement && (node.parentElement.tagName === 'TEXTAREA' || node.parentElement.tagName === 'INPUT')) continue;
-
                         nodesToHighlight.push({ node, index: val.indexOf(issue.text) });
                     }
                 }
@@ -265,7 +332,6 @@
                 if (match) {
                     const reportedSrc = match[1];
                     document.querySelectorAll('img').forEach(img => {
-                        if (img.classList.contains('issue-highlight-image')) return;
                         if (img.src === reportedSrc || img.getAttribute('src') === reportedSrc || img.src.includes(reportedSrc)) {
                             img.classList.add('issue-highlight-image');
                             img.setAttribute('data-issue-id', issue.id);
@@ -279,44 +345,11 @@
     // --- Events: Selection & Interaction ---
     function handleTextSelection() {
         if (state.showInput || state.showIssueCard) return;
-
         const selection = window.getSelection();
-        if (!selection || selection.rangeCount === 0) return;
+        const text = selection.toString().trim();
+        if (!text || selection.rangeCount === 0) return;
 
         const range = selection.getRangeAt(0);
-        const text = selection.toString().trim();
-        if (!text) return;
-
-        // --- Robust Collision Detection ---
-        const highlights = document.querySelectorAll('.issue-highlight');
-        for (const h of highlights) {
-            if (selection.containsNode(h, true) || range.intersectsNode(h)) {
-                const issueId = h.getAttribute('data-issue-id');
-                const issue = state.issues.find(i => i.id === issueId);
-                if (issue) {
-                    selection.removeAllRanges();
-                    openIssueCard(issue, h.getBoundingClientRect());
-                    return;
-                }
-            }
-        }
-
-        // Ancestor check
-        let node = range.commonAncestorContainer;
-        while (node && node !== document.body) {
-            if (node.nodeType === 1 && node.classList.contains('issue-highlight')) {
-                const issueId = node.getAttribute('data-issue-id');
-                const issue = state.issues.find(i => i.id === issueId);
-                if (issue) {
-                    selection.removeAllRanges();
-                    openIssueCard(issue, node.getBoundingClientRect());
-                    return;
-                }
-            }
-            node = node.parentNode;
-        }
-
-        // --- NEW ISSUE ---
         state.selectionRange = range.cloneRange();
         state.selectedText = text;
         state.selectionType = 'text';
@@ -326,28 +359,15 @@
 
     function onDocumentClick(e) {
         const target = e.target;
-
-        // 1. Click on existing highlight
         if (target.classList.contains('issue-highlight') || target.classList.contains('issue-highlight-image')) {
             const issueId = target.getAttribute('data-issue-id');
             const issue = state.issues.find(i => i.id === issueId);
             if (issue) openIssueCard(issue, target.getBoundingClientRect());
-            e.stopPropagation();
             return;
         }
 
-        // 2. Click on image
         if (target.tagName === 'IMG' && !target.classList.contains('issue-highlight-image')) {
             if (state.showInput || state.showIssueCard) return;
-
-            const reportedSrc = target.src || target.getAttribute('src');
-            const existingIssue = state.issues.find(i => i.text.includes(reportedSrc));
-            if (existingIssue) {
-                openIssueCard(existingIssue, target.getBoundingClientRect());
-                return;
-            }
-
-            e.preventDefault();
             const img = target;
             state.selectionType = 'image';
             state.selectedText = `![${img.alt || 'image'}](${img.src})`;
@@ -358,9 +378,12 @@
     }
 
     function handleClickOutside(e) {
-        const container = document.querySelector('.tb-popup');
-        if (container && !container.contains(e.target)) {
-            hidePopups();
+        const popup = document.querySelector('.tb-popup');
+        const sidebar = document.getElementById('tb-sidebar');
+        const floatingBtn = document.getElementById('tb-floating-btn');
+        if (popup && !popup.contains(e.target)) hidePopups();
+        if (sidebar && sidebar.classList.contains('open') && !sidebar.contains(e.target) && !floatingBtn.contains(e.target)) {
+            sidebar.classList.remove('open');
         }
     }
 
@@ -368,29 +391,30 @@
     function openCreationForm(rect) {
         hidePopups();
         state.showInput = true;
-
         const popup = document.createElement('div');
         popup.id = 'tb-creation-form';
         popup.className = 'tb-popup';
         popup.style.width = '320px';
-
         popup.innerHTML = `
             <div style="padding: 24px 24px 0;">
-                <div style="font-size: 10px; font-weight: 800; color: #9ca3af; letter-spacing: 0.1em; margin-bottom: 12px;">NEW ${state.selectionType.toUpperCase()} ISSUE</div>
+                <div style="font-size: 10px; font-weight: 800; color: #9ca3af; letter-spacing: 0.1em; margin-bottom: 12px;">NEW ISSUE</div>
                 <textarea id="tb-desc-input" class="tb-textarea" rows="4" placeholder="Description"></textarea>
             </div>
             <div style="padding: 12px 24px 24px; display: flex; justify-content: space-between; align-items: center;">
-                <span style="font-size: 11px; color: #d1d5db;">⌘ + Enter to create</span>
-                <button id="tb-submit-btn" class="tb-btn tb-btn-primary">Create Issue</button>
+                <span style="font-size: 11px; color: #d1d5db;">⌘ + Enter</span>
+                <div style="display: flex; gap: 8px;">
+                    <button id="tb-list-btn" class="tb-btn tb-btn-secondary" style="padding: 10px 15px;">List</button>
+                    <button id="tb-submit-btn" class="tb-btn tb-btn-primary">Create</button>
+                </div>
             </div>
         `;
         document.body.appendChild(popup);
         positionPopup(popup, rect);
-
         const input = document.getElementById('tb-desc-input');
         input.focus();
         input.onkeydown = (e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') submitNewIssue(); };
         document.getElementById('tb-submit-btn').onclick = submitNewIssue;
+        document.getElementById('tb-list-btn').onclick = () => openSidebar(state.selectedText);
     }
 
     async function submitNewIssue() {
@@ -400,58 +424,138 @@
 
         state.status = 'submitting';
         const btn = document.getElementById('tb-submit-btn');
-        btn.innerText = 'Creating...';
+        btn.innerText = '...';
         btn.disabled = true;
 
-        const lines = desc.split('\n');
-        const rawTitle = lines[0].substring(0, 100).trim();
-        const shortTitle = rawTitle.length > 15 ? rawTitle.substring(0, 12) + '...' : rawTitle;
-        const bodyContent = lines.length > 1 ? lines.slice(1).join('\n') : lines[0];
-
         try {
+            const rawTitle = desc.split('\n')[0].substring(0, 100).trim();
+            const bodyContent = `**Description:**\n${desc}\n\n**Selected Context:**\n> ${state.selectedText}\n\n**URL:**\n${window.location.href}`;
+
             const res = await fetch(`${API_BASE}/create`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    title: shortTitle || "New Issue",
-                    body: `**Description:**\n${bodyContent}\n\n**Selected ${state.selectionType === 'image' ? 'Image' : 'Text'}:**\n${state.selectionType === 'image' ? '' : '> '}${state.selectedText}\n\n**URL:**\n${window.location.href}`
-                })
+                body: JSON.stringify({ title: rawTitle || "New Issue", body: bodyContent })
             });
             const data = await res.json();
-            if (!res.ok) throw new Error(data.error);
+            if (!res.ok) throw new Error();
 
             const newIssue = {
-                id: `issue-${data.number}`, // Stable ID
+                id: `issue-${data.number}`,
                 text: state.selectedText,
                 issueUrl: data.url,
                 issueNumber: data.number,
-                title: shortTitle,
-                description: desc
+                title: rawTitle,
+                description: desc,
+                state: 'open'
             };
 
             state.issues.push(newIssue);
             localStorage.setItem('tb_issues_cache', JSON.stringify(state.issues));
-            applyVisualHighlight(newIssue);
-            showToast("Issue Created Successfully");
-
-            let targetRect;
-            if (state.selectionType === 'image' && state.lastClickedImage) {
-                targetRect = state.lastClickedImage.getBoundingClientRect();
-            } else if (state.selectionRange) {
-                targetRect = state.selectionRange.getBoundingClientRect();
-            }
-
+            reapplyHighlights(state.issues);
+            showToast("Issue Created");
             hidePopups();
-            if (targetRect) openIssueCard(newIssue, targetRect);
-
-        } catch (e) {
-            showToast("Failed to create issue");
-            btn.innerText = 'Create Issue';
-            btn.disabled = false;
-        } finally { state.status = 'idle'; }
+        } catch (e) { showToast("Failed"); }
+        finally { state.status = 'idle'; }
     }
 
-    // --- Popups: Issue Card ---
+    // --- Sidebar Dashboard ---
+    function openSidebar(filterText = '') {
+        let sidebar = document.getElementById('tb-sidebar');
+        if (!sidebar) {
+            sidebar = document.createElement('div');
+            sidebar.id = 'tb-sidebar';
+            sidebar.className = 'tb-sidebar';
+            document.body.appendChild(sidebar);
+        }
+
+        const openIssues = state.issues.filter(i => i.state === 'open');
+        const closedIssues = state.issues.filter(i => i.state === 'closed');
+
+        const renderIssue = (issue) => `
+            <div class="tb-issue-item" data-issue-id="${issue.id}">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <span style="font-size: 11px; font-weight: 800; color: ${issue.state === 'open' ? '#3b82f6' : '#9ca3af'};">#${issue.issueNumber}</span>
+                    <span style="font-size: 10px; padding: 2px 8px; border-radius: 6px; font-weight: 700; text-transform: uppercase;" class="${issue.state === 'open' ? 'tb-badge-open' : 'tb-badge-closed'}">
+                        ${issue.state}
+                    </span>
+                </div>
+                <div style="font-size: 14px; font-weight: 700; color: #111; margin-bottom: 6px;">${issue.title || 'No Title'}</div>
+                <div style="font-size: 12px; color: #6b7280; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.5; margin-bottom: 12px;">
+                    ${issue.description || 'No description provided'}
+                </div>
+                <div style="font-size: 10px; color: #9ca3af; font-style: italic; border-top: 1px solid #f9fafb; padding-top: 8px;">
+                    Ref: "${(issue.text || '').substring(0, 40)}${(issue.text || '').length > 40 ? '...' : ''}"
+                </div>
+            </div>
+        `;
+
+        sidebar.innerHTML = `
+            <div class="tb-sidebar-header">
+                <div>
+                    <div style="font-size: 10px; font-weight: 800; color: #9ca3af; letter-spacing: 0.1em; margin-bottom: 2px;">DASHBOARD</div>
+                    <div style="font-weight: 800; font-size: 18px; color: #111;">Issue Feedback Backlog</div>
+                </div>
+                <div style="display: flex; gap: 12px; align-items: center;">
+                    <button id="tb-sidebar-refresh" class="tb-icon-btn" title="Sync with GitHub">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                    </button>
+                    <button id="tb-sidebar-close" class="tb-icon-btn" title="Close">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                    </button>
+                </div>
+            </div>
+            <div class="tb-sidebar-content">
+                <div class="tb-column-header">
+                    <span>Open Issues (${openIssues.length})</span>
+                </div>
+                <div class="tb-section-content">
+                    ${openIssues.length === 0 ? '<div style="color: #9ca3af; text-align: center; margin-top: 20px; font-size: 13px;">No active issues.</div>' : openIssues.map(renderIssue).join('')}
+                </div>
+                
+                <div class="tb-column-header" style="border-top: 1px solid #eee; position: sticky; top: -1px;">
+                    <span>Closed Issues (${closedIssues.length})</span>
+                </div>
+                <div class="tb-section-content" style="background: white;">
+                    ${closedIssues.length === 0 ? '<div style="color: #9ca3af; text-align: center; margin-top: 20px; font-size: 13px;">No closed issues yet.</div>' : closedIssues.map(renderIssue).join('')}
+                </div>
+            </div>
+        `;
+
+        sidebar.classList.add('open');
+        document.getElementById('tb-sidebar-close').onclick = () => sidebar.classList.remove('open');
+        document.getElementById('tb-sidebar-refresh').onclick = () => {
+            const btn = document.getElementById('tb-sidebar-refresh');
+            btn.style.animation = 'tb-spin 1s linear infinite';
+            fetchIssues().finally(() => btn.style.animation = '');
+        };
+
+        // Add spin animation
+        if (!document.getElementById('tb-anim-styles')) {
+            const s = document.createElement('style');
+            s.id = 'tb-anim-styles';
+            s.textContent = '@keyframes tb-spin { to { transform: rotate(360deg); } }';
+            document.head.appendChild(s);
+        }
+
+        sidebar.querySelectorAll('.tb-issue-item').forEach(item => {
+            item.onclick = (e) => {
+                const issueId = item.getAttribute('data-issue-id');
+                const issue = state.issues.find(i => i.id === issueId);
+                if (issue) {
+                    sidebar.classList.remove('open');
+                    const highlight = document.querySelector(`[data-issue-id="${issue.id}"]`);
+                    if (highlight) {
+                        highlight.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        setTimeout(() => openIssueCard(issue, highlight.getBoundingClientRect()), 400);
+                    } else {
+                        openIssueCard(issue, { top: window.innerHeight / 2, left: window.innerWidth / 2, width: 0, height: 0 });
+                    }
+                }
+            };
+        });
+    }
+
+    // --- Issue Card ---
     function openIssueCard(issue, rect) {
         hidePopups();
         state.showIssueCard = true;
@@ -473,7 +577,7 @@
                 <div style="padding: 24px;">
                     <div style="font-size: 10px; font-weight: 800; color: #9ca3af; margin-bottom: 12px;">EDIT ISSUE</div>
                     <input id="tb-edit-title" class="tb-textarea" style="margin-bottom: 8px; font-weight:600;" value="${issue.title}">
-                    <textarea id="tb-edit-body" class="tb-textarea" rows="3" style="font-size:13px;">${issue.description}</textarea>
+                    <textarea id="tb-edit-body" class="tb-textarea" rows="4">${issue.description}</textarea>
                     <div style="margin-top: 12px; display: flex; justify-content: flex-end; gap: 8px;">
                         <button id="tb-edit-cancel" style="background:none; border:none; cursor:pointer; color:#9ca3af; font-size:12px;">Cancel</button>
                         <button id="tb-edit-save" class="tb-btn tb-btn-primary" style="padding:6px 16px; font-size:12px; border-radius:20px;">Save</button>
@@ -485,10 +589,10 @@
         } else if (state.showCommentInput) {
             container.innerHTML = `
                 <div style="padding: 24px;">
-                    <div style="font-size: 10px; font-weight: 800; color: #9ca3af; margin-bottom: 12px;">ADD COMMENT — #${issue.issueNumber}</div>
-                    <textarea id="tb-comment-text" class="tb-textarea" rows="3" placeholder="Write a comment..." autofocus></textarea>
+                    <div style="font-size: 10px; font-weight: 800; color: #9ca3af; margin-bottom: 12px;">COMMENT — #${issue.issueNumber}</div>
+                    <textarea id="tb-comment-text" class="tb-textarea" rows="3" placeholder="Write..."></textarea>
                     <div style="margin-top: 12px; display: flex; justify-content: flex-end;">
-                        <button id="tb-comment-submit" class="tb-btn tb-btn-primary" style="padding:7px 18px; font-size:12px; border-radius:20px;">Post Comment</button>
+                        <button id="tb-comment-submit" class="tb-btn tb-btn-primary" style="padding:7px 18px; font-size:12px;">Post</button>
                     </div>
                 </div>
             `;
@@ -499,38 +603,36 @@
                 <div style="padding: 24px;">
                     <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 16px;">
                         <div>
-                            <div style="font-size: 10px; font-weight: 800; color: #9ca3af; margin-bottom: 2px;">LINKED ISSUE</div>
-                            <div style="font-size: 15px; font-weight: 600; color: #111;">#${issue.issueNumber} ${issue.title}</div>
+                            <div style="font-size: 10px; font-weight: 800; color: #9ca3af; margin-bottom: 2px;">#${issue.issueNumber} — ${issue.state.toUpperCase()}</div>
+                            <div style="font-size: 15px; font-weight: 600; color: #111;">${issue.title}</div>
                         </div>
                         <div style="display: flex; gap: 4px;">
-                            <button id="tb-edit-trigger" class="tb-icon-btn" title="Edit">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
-                            </button>
-                            <button id="tb-comment-trigger" class="tb-icon-btn" title="Comment">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.3 8.3 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.3 8.3 0 0 1-3.8-.9L3 21l1.9-5.7a8.3 8.3 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.3 8.3 0 0 1 3.8-.9h.5a8.4 8.4 0 0 1 8 8v.5z"/></svg>
-                            </button>
+                            ${issue.state === 'open' ? `
+                                <button id="tb-edit-trigger" class="tb-icon-btn">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+                                </button>
+                                <button id="tb-comment-trigger" class="tb-icon-btn">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.3 8.3 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.3 8.3 0 0 1-3.8-.9L3 21l1.9-5.7a8.3 8.3 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.3 8.3 0 0 1 3.8-.9h.5a8.4 8.4 0 0 1 8 8v.5z"/></svg>
+                                </button>
+                            ` : ''}
                         </div>
                     </div>
-                    
-                    <div style="background: #f9fafb; padding: 14px; border-radius: 16px; border: 1px solid #f3f4f6; margin-bottom: 24px;">
-                        <div style="font-size: 9px; font-weight: 800; color: #9ca3af; margin-bottom: 6px;">QUICK CONTEXT</div>
-                        ${isImg ? `<div style="font-size:13px; color:#6b7280; font-style:italic;">🖼️ Image selection</div>` : `<div style="font-size:13px; color:#6b7280; font-style:italic; line-height:1.5;">"${issue.text}"</div>`}
+                    <div style="background: #f9fafb; padding: 12px; border-radius: 12px; margin-bottom: 20px;">
+                        <div style="font-size: 12px; color: #4b5563; line-height: 1.5;">${isImg ? '🖼️ Image Reference' : `"${issue.text}"`}</div>
                     </div>
-
-                    <div style="display: flex; gap: 10px;">
+                    <div style="display: flex; gap: 8px;">
                         <button id="tb-view-github" class="tb-btn tb-btn-secondary" style="flex:1;">View</button>
-                        <button id="tb-close-issue" class="tb-btn tb-btn-danger" style="flex:1;">Close</button>
+                        ${issue.state === 'open' ? `<button id="tb-close-issue" class="tb-btn tb-btn-danger" style="flex:1;">Close</button>` : ''}
                     </div>
                 </div>
             `;
-            container.querySelector('#tb-edit-trigger').onclick = () => { state.isEditing = true; renderCardContent(container, issue, rect); };
-            container.querySelector('#tb-comment-trigger').onclick = () => { state.showCommentInput = true; renderCardContent(container, issue, rect); };
+            if (container.querySelector('#tb-edit-trigger')) container.querySelector('#tb-edit-trigger').onclick = () => { state.isEditing = true; renderCardContent(container, issue, rect); };
+            if (container.querySelector('#tb-comment-trigger')) container.querySelector('#tb-comment-trigger').onclick = () => { state.showCommentInput = true; renderCardContent(container, issue, rect); };
             container.querySelector('#tb-view-github').onclick = () => window.open(issue.issueUrl, '_blank');
-            container.querySelector('#tb-close-issue').onclick = () => closeCurrentIssue(issue);
+            if (container.querySelector('#tb-close-issue')) container.querySelector('#tb-close-issue').onclick = () => closeCurrentIssue(issue);
         }
     }
 
-    // --- Actions ---
     async function saveIssueEdit(issue, container, rect) {
         const title = document.getElementById('tb-edit-title').value.trim();
         const body = document.getElementById('tb-edit-body').value.trim();
@@ -546,9 +648,9 @@
             issue.description = body;
             state.isEditing = false;
             localStorage.setItem('tb_issues_cache', JSON.stringify(state.issues));
-            showToast("Issue Updated Successfully");
+            showToast("Updated");
             renderCardContent(container, issue, rect);
-        } catch (e) { showToast("Failed to update issue"); }
+        } catch (e) { showToast("Failed"); }
     }
 
     async function submitComment(issue, container, rect) {
@@ -562,13 +664,13 @@
             });
             if (!res.ok) throw new Error();
             state.showCommentInput = false;
-            showToast("Comment Added Successfully");
+            showToast("Commented");
             renderCardContent(container, issue, rect);
-        } catch (e) { showToast("Failed to add comment"); }
+        } catch (e) { showToast("Failed"); }
     }
 
     async function closeCurrentIssue(issue) {
-        if (!confirm("Close this issue?")) return;
+        if (!confirm("Close?")) return;
         try {
             const res = await fetch(`${API_BASE}/close`, {
                 method: 'POST',
@@ -576,70 +678,32 @@
                 body: JSON.stringify({ number: issue.issueNumber })
             });
             if (!res.ok) throw new Error();
-            state.issues = state.issues.filter(i => i.id !== issue.id);
+            const target = state.issues.find(i => i.id === issue.id);
+            if (target) target.state = 'closed';
             localStorage.setItem('tb_issues_cache', JSON.stringify(state.issues));
-            // Refresh highlights on current page
             reapplyHighlights(state.issues);
             hidePopups();
-            showToast("Issue Closed Successfully");
-        } catch (e) { showToast("Failed to close issue"); }
-    }
-
-    function applyVisualHighlight(issue) {
-        if (state.selectionType === 'image' && state.lastClickedImage) {
-            state.lastClickedImage.classList.add('issue-highlight-image');
-            state.lastClickedImage.setAttribute('data-issue-id', issue.id);
-            return;
-        }
-        if (state.selectionRange) {
-            const span = document.createElement('span');
-            span.className = 'issue-highlight';
-            span.setAttribute('data-issue-id', issue.id);
-            try {
-                const contents = state.selectionRange.extractContents();
-                span.appendChild(contents);
-                state.selectionRange.insertNode(span);
-            } catch (e) {
-                try { state.selectionRange.surroundContents(span); } catch (e2) { }
-            }
-        }
+            showToast("Closed");
+        } catch (e) { showToast("Failed"); }
     }
 
     function positionPopup(popup, rect) {
         let top = rect.top - popup.offsetHeight - 15;
         let left = rect.left + (rect.width / 2) - (popup.offsetWidth / 2);
-
         if (top < 10) top = rect.bottom + 15;
         left = Math.max(10, Math.min(left, window.innerWidth - popup.offsetWidth - 10));
         top = Math.max(10, top);
-
         popup.style.top = top + 'px';
         popup.style.left = left + 'px';
     }
 
-    // --- Initialize & Docsify Integration ---
     if (window.$docsify) {
         window.$docsify.plugins = [].concat(window.$docsify.plugins || [], function (hook, vm) {
-            // Trigger 1: When the entire site is fully loaded (Refresh case)
-            hook.ready(function () {
-                console.log("TB: Docsify Ready");
-                if (state.issues.length > 0) reapplyHighlights(state.issues);
-            });
-
-            // Trigger 2: Every time navigation happens or content updates
-            hook.doneEach(function () {
-                console.log("TB: Page Content Updated");
-                // Small buffer to allow Docsify to finish physical DOM injection
-                setTimeout(() => {
-                    if (state.issues.length > 0) reapplyHighlights(state.issues);
-                }, 150);
-            });
+            hook.ready(() => { if (state.issues.length > 0) reapplyHighlights(state.issues); });
+            hook.doneEach(() => { setTimeout(() => { if (state.issues.length > 0) reapplyHighlights(state.issues); }, 150); });
         });
     }
 
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', init);
-    } else {
-        init();
-    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+    else init();
 })();
