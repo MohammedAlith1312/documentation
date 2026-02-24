@@ -6,7 +6,7 @@ content: |-
 
   *   React is a JavaScript library for building user interfaces and functions.
       
-  *   React is used to build single-page applications.
+  *   React is used to build single-page app.
       
   *   React allows us to create reusable UI components for perfect website.
       
