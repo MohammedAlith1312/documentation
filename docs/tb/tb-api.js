@@ -25,7 +25,7 @@ export async function fetchIssues() {
             }));
 
             state.issues = newIssues;
-            localStorage.setItem('tb_issues_cache', JSON.stringify(newIssues));
+            localStorage.setItem('tb_issues_cache', JSON.stringify(newIssues.filter(i => i.state !== 'closed')));
             reapplyHighlights(state.issues);
 
             const sidebar = document.getElementById('tb-sidebar');
@@ -70,7 +70,7 @@ export async function submitNewIssue() {
         };
 
         state.issues.push(newIssue);
-        localStorage.setItem('tb_issues_cache', JSON.stringify(state.issues));
+        localStorage.setItem('tb_issues_cache', JSON.stringify(state.issues.filter(i => i.state !== 'closed')));
         reapplyHighlights(state.issues);
         showToast("Issue Created");
         hidePopups();
@@ -92,7 +92,7 @@ export async function saveIssueEdit(issue, container, rect) {
         issue.title = title;
         issue.description = body;
         state.isEditing = false;
-        localStorage.setItem('tb_issues_cache', JSON.stringify(state.issues));
+        localStorage.setItem('tb_issues_cache', JSON.stringify(state.issues.filter(i => i.state !== 'closed')));
         showToast("Updated");
         renderCardContent(container, issue, rect);
     } catch (e) { showToast("Failed"); }
@@ -125,7 +125,7 @@ export async function closeCurrentIssue(issue) {
         if (!res.ok) throw new Error();
         const target = state.issues.find(i => i.id === issue.id);
         if (target) target.state = 'closed';
-        localStorage.setItem('tb_issues_cache', JSON.stringify(state.issues));
+        localStorage.setItem('tb_issues_cache', JSON.stringify(state.issues.filter(i => i.state !== 'closed')));
         reapplyHighlights(state.issues);
         hidePopups();
         showToast("Closed");
