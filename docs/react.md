@@ -15,7 +15,7 @@ content: |-
       
       function Hello() {
         return (
-          <h1>Hello World! mohammed Alith hj</h1>
+          <h1>Hello World! mohammed</h1>
         );
       }
       
