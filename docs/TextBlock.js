@@ -390,13 +390,18 @@
         popup.style.width = '320px';
         popup.innerHTML = `
             <div style="padding: 24px 24px 0;">
-                <div style="font-size: 10px; font-weight: 800; color: #9ca3af; letter-spacing: 0.1em; margin-bottom: 12px;">NEW ISSUE</div>
+                <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">
+                    <div style="font-size: 10px; font-weight: 800; color: #9ca3af; letter-spacing: 0.1em; margin-top: 6px;">NEW ISSUE</div>
+                    <button id="tb-create-close" class="tb-icon-btn" style="margin: -8px -8px 0 0;" title="Close">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                    </button>
+                </div>
                 <textarea id="tb-desc-input" class="tb-textarea" rows="4" placeholder="Description"></textarea>
             </div>
             <div style="padding: 12px 24px 24px; display: flex; justify-content: space-between; align-items: center;">
                 <span style="font-size: 11px; color: #d1d5db;">⌘ + Enter</span>
                 <div style="display: flex; gap: 8px;">
-                    <button id="tb-list-btn" class="tb-btn tb-btn-secondary" style="padding: 10px 15px;">List</button>
+                    <!---- <button id="tb-list-btn" class="tb-btn tb-btn-secondary" style="padding: 10px 15px;">List</button> ---->
                     <button id="tb-submit-btn" class="tb-btn tb-btn-primary">Create</button>
                 </div>
             </div>
@@ -407,7 +412,8 @@
         input.focus();
         input.onkeydown = (e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') submitNewIssue(); };
         document.getElementById('tb-submit-btn').onclick = submitNewIssue;
-        document.getElementById('tb-list-btn').onclick = () => openSidebar(state.selectedText);
+        // document.getElementById('tb-list-btn').onclick = () => openSidebar(state.selectedText);
+        document.getElementById('tb-create-close').onclick = hidePopups;
     }
 
     async function submitNewIssue() {
@@ -568,7 +574,12 @@
         if (state.isEditing) {
             container.innerHTML = `
                 <div style="padding: 24px;">
-                    <div style="font-size: 10px; font-weight: 800; color: #9ca3af; margin-bottom: 12px;">EDIT ISSUE</div>
+                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">
+                        <div style="font-size: 10px; font-weight: 800; color: #9ca3af; margin-top: 6px;">EDIT ISSUE</div>
+                        <button class="tb-card-close tb-icon-btn" style="margin: -8px -8px 0 0;" title="Close">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                        </button>
+                    </div>
                     <input id="tb-edit-title" class="tb-textarea" style="margin-bottom: 8px; font-weight:600;" value="${issue.title}">
                     <textarea id="tb-edit-body" class="tb-textarea" rows="4">${issue.description}</textarea>
                     <div style="margin-top: 12px; display: flex; justify-content: flex-end; gap: 8px;">
@@ -582,7 +593,12 @@
         } else if (state.showCommentInput) {
             container.innerHTML = `
                 <div style="padding: 24px;">
-                    <div style="font-size: 10px; font-weight: 800; color: #9ca3af; margin-bottom: 12px;">COMMENT — #${issue.issueNumber}</div>
+                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">
+                        <div style="font-size: 10px; font-weight: 800; color: #9ca3af; margin-top: 6px;">COMMENT — #${issue.issueNumber}</div>
+                        <button class="tb-card-close tb-icon-btn" style="margin: -8px -8px 0 0;" title="Close">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                        </button>
+                    </div>
                     <textarea id="tb-comment-text" class="tb-textarea" rows="3" placeholder="Write..."></textarea>
                     <div style="margin-top: 12px; display: flex; justify-content: flex-end;">
                         <button id="tb-comment-submit" class="tb-btn tb-btn-primary" style="padding:7px 18px; font-size:12px;">Post</button>
@@ -599,15 +615,18 @@
                             <div style="font-size: 10px; font-weight: 800; color: #9ca3af; margin-bottom: 2px;">#${issue.issueNumber} — ${issue.state.toUpperCase()}</div>
                             <div style="font-size: 15px; font-weight: 600; color: #111;">${issue.title}</div>
                         </div>
-                        <div style="display: flex; gap: 4px;">
+                        <div style="display: flex; gap: 4px; margin-top: -6px; margin-right: -6px;">
                             ${issue.state === 'open' ? `
-                                <button id="tb-edit-trigger" class="tb-icon-btn">
+                                <button id="tb-edit-trigger" class="tb-icon-btn" title="Edit">
                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
                                 </button>
-                                <button id="tb-comment-trigger" class="tb-icon-btn">
+                                <button id="tb-comment-trigger" class="tb-icon-btn" title="Comment">
                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.3 8.3 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.3 8.3 0 0 1-3.8-.9L3 21l1.9-5.7a8.3 8.3 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.3 8.3 0 0 1 3.8-.9h.5a8.4 8.4 0 0 1 8 8v.5z"/></svg>
                                 </button>
                             ` : ''}
+                            <button class="tb-card-close tb-icon-btn" title="Close" style="margin-left: 2px;">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                            </button>
                         </div>
                     </div>
                     <div style="background: #f9fafb; padding: 12px; border-radius: 12px; margin-bottom: 20px;">
@@ -624,6 +643,9 @@
             container.querySelector('#tb-view-github').onclick = () => window.open(issue.issueUrl, '_blank');
             if (container.querySelector('#tb-close-issue')) container.querySelector('#tb-close-issue').onclick = () => closeCurrentIssue(issue);
         }
+
+        const closeBtn = container.querySelector('.tb-card-close');
+        if (closeBtn) closeBtn.onclick = hidePopups;
     }
 
     async function saveIssueEdit(issue, container, rect) {
