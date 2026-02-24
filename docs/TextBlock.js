@@ -161,16 +161,7 @@
             .tb-badge-open { background: #ecfdf5; color: #10b981; }
             .tb-badge-closed { background: #f3f4f6; color: #6b7280; }
 
-            .tb-floating-btn {
-                position: fixed; bottom: 30px; right: 30px; z-index: 9998;
-                background: #111; color: white; border: none; border-radius: 50px;
-                padding: 12px 24px; font-weight: 600; cursor: pointer;
-                box-shadow: 0 10px 25px rgba(0,0,0,0.2);
-                display: flex; align-items: center; gap: 8px;
-                transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
-            }
-            .tb-floating-btn:hover { transform: translateY(-4px) scale(1.02); background: #000; box-shadow: 0 15px 35px rgba(0,0,0,0.3); }
+
         `;
         document.head.appendChild(style);
     }
@@ -183,19 +174,7 @@
             document.body.appendChild(toast);
         }
 
-        if (!document.getElementById('tb-floating-btn')) {
-            const btn = document.createElement('button');
-            btn.id = 'tb-floating-btn';
-            btn.className = 'tb-floating-btn';
-            btn.innerHTML = `
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-                </svg>
-                <span>Issues</span>
-            `;
-            btn.onclick = () => openSidebar();
-            document.body.appendChild(btn);
-        }
+
     }
 
     // --- Navigation Support: MutationObserver ---
@@ -359,6 +338,12 @@
 
     function onDocumentClick(e) {
         const target = e.target;
+
+        if (target.id === 'tb-sidebar-btn' || (target.closest && target.closest('#tb-sidebar-btn'))) {
+            openSidebar();
+            return;
+        }
+
         if (target.classList.contains('issue-highlight') || target.classList.contains('issue-highlight-image')) {
             const issueId = target.getAttribute('data-issue-id');
             const issue = state.issues.find(i => i.id === issueId);
@@ -380,9 +365,9 @@
     function handleClickOutside(e) {
         const popup = document.querySelector('.tb-popup');
         const sidebar = document.getElementById('tb-sidebar');
-        const floatingBtn = document.getElementById('tb-floating-btn');
+        const isSidebarBtn = e.target.closest ? e.target.closest('#tb-sidebar-btn') : null;
         if (popup && !popup.contains(e.target)) hidePopups();
-        if (sidebar && sidebar.classList.contains('open') && !sidebar.contains(e.target) && !floatingBtn.contains(e.target)) {
+        if (sidebar && sidebar.classList.contains('open') && !sidebar.contains(e.target) && !isSidebarBtn) {
             sidebar.classList.remove('open');
         }
     }
@@ -493,7 +478,7 @@
             <div class="tb-sidebar-header">
                 <div>
                     <div style="font-size: 10px; font-weight: 800; color: #9ca3af; letter-spacing: 0.1em; margin-bottom: 2px;">DASHBOARD</div>
-                    <div style="font-weight: 800; font-size: 18px; color: #111;">Issue Feedback Backlog</div>
+                    <div style="font-weight: 800; font-size: 18px; color: #111;">Issues</div>
                 </div>
                 <div style="display: flex; gap: 12px; align-items: center;">
                     <button id="tb-sidebar-refresh" class="tb-icon-btn" title="Sync with GitHub">
