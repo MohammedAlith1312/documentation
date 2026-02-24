@@ -48,7 +48,7 @@ export async function submitNewIssue() {
     btn.disabled = true;
 
     try {
-        const rawTitle = desc.split('\\n')[0].substring(0, 100).trim();
+        const rawTitle = desc.split('\n')[0].substring(0, 100).trim();
         const bodyContent = `**Description:**\n${desc}\n\n**Selected Context:**\n> ${state.selectedText}\n\n**URL:**\n${window.location.href}`;
 
         const res = await fetch(`${API_BASE}/create`, {
