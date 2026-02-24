@@ -328,6 +328,14 @@
         const text = selection.toString().trim();
         if (!text || selection.rangeCount === 0) return;
 
+        // Ensure selection is inside main content, not inside any sidebars
+        const node = selection.anchorNode;
+        if (node && node.parentElement) {
+            if (node.parentElement.closest('.sidebar') || node.parentElement.closest('.tb-sidebar')) {
+                return;
+            }
+        }
+
         const range = selection.getRangeAt(0);
         state.selectionRange = range.cloneRange();
         state.selectedText = text;
