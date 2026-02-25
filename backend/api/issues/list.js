@@ -69,6 +69,9 @@ module.exports = async function handler(req, res) {
             const contextMatch = body.match(/\*\*Selected (?:Context|context):\*\*\n>\s*(.*)/);
             const imageMatch = body.match(/\*\*Selected (?:Image|image):\*\*\n\s*(.*)/);
 
+            const urlMatch = body.match(/(?:\*\*URL:\*\*|URL:)[\s\r\n]*(http[^\s]+)/i);
+            const pageUrl = urlMatch ? urlMatch[1].trim() : '';
+
             if (textMatch) {
                 extractedText = textMatch[1].trim();
             } else if (contextMatch) {
@@ -76,17 +79,34 @@ module.exports = async function handler(req, res) {
             } else if (imageMatch) {
                 extractedText = imageMatch[1].trim();
             }
+
+            // Clean up description before sending to UI to avoid displaying metadata
+            let cleanBody = body;
+            const descMatch = cleanBody.match(/\*\*Description:\*\*\s*\r?\n([\s\S]*?)(?=\n\n\*\*Selected|$)/i);
+            if (descMatch) {
+                cleanBody = descMatch[1].trim();
+            } else {
+                let temp = cleanBody.split('**Selected Context:**')[0]
+                    .split('**Selected Image:**')[0]
+                    .split('**Selected Text:**')[0]
+                    .split('**URL:**')[0]
+                    .split('URL:')[0].trim();
+                cleanBody = temp.replace(/\*\*Description:\*\*\s*/i, '').trim();
+            }
+
             return {
                 id: `issue-${issue.id}`,
                 issueNumber: issue.number,
                 title: issue.title,
-                body,
+                body: cleanBody,
                 url: issue.html_url,
+                pageUrl: pageUrl,
                 selectedText: extractedText || 'No direct text reference',
                 state: (issue.state || 'open').toLowerCase(),
                 isPullRequest: !!issue.pull_request
             };
         });
+
 
         res.status(200).json({ issues });
     } catch (error) {

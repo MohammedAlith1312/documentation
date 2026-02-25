@@ -1,6 +1,6 @@
 import { state } from './tb-config.js';
 import { hidePopups, reapplyHighlights } from './tb-ui.js';
-import { openCreationForm, openSidebar, openIssueCard, openFloatingToolbar } from './tb-components.js';
+import { openCreationForm, openSidebar, openIssueCard, openFloatingToolbar, openPageSidebar } from './tb-components.js';
 
 export function setupNavigationObserver() {
     const targetNode = document.getElementById('app') || document.body;
@@ -70,6 +70,11 @@ export function onDocumentClick(e) {
         return;
     }
 
+    if (target.id === 'tb-page-issues-btn' || (target.closest && target.closest('#tb-page-issues-btn'))) {
+        openPageSidebar();
+        return;
+    }
+
     const highlightEl = target.closest ? (target.closest('.issue-highlight') || target.closest('.issue-highlight-image')) : null;
     if (highlightEl) {
         const issueId = highlightEl.getAttribute('data-issue-id');
@@ -93,9 +98,16 @@ export function handleClickOutside(e) {
     const popup = document.querySelector('.tb-popup');
     const sidebar = document.getElementById('tb-sidebar');
     const isSidebarBtn = e.target.closest ? e.target.closest('#tb-sidebar-btn') : null;
+
+    const pageSidebar = document.getElementById('tb-page-sidebar');
+    const isPageBtn = e.target.closest ? e.target.closest('#tb-page-issues-btn') : null;
+
     if (popup && !popup.contains(e.target)) hidePopups();
     if (sidebar && sidebar.classList.contains('open') && !sidebar.contains(e.target) && !isSidebarBtn) {
         sidebar.classList.remove('open');
+    }
+    if (pageSidebar && pageSidebar.classList.contains('open') && !pageSidebar.contains(e.target) && !isPageBtn) {
+        pageSidebar.classList.remove('open');
     }
 }
 

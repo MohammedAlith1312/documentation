@@ -244,7 +244,7 @@ export function openFloatingToolbar(rect) {
         <div style="width: 1px; height: 16px; background: #e5e7eb;"></div>
         <button id="tb-toolbar-bug" class="tb-icon-btn" title="Report Bug" style="padding: 6px 10px; border-radius: 8px; color: #ef4444; font-weight: 600; font-size: 13px; width: auto; display: flex; align-items: center; gap: 6px;">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m8 2 1.88 1.88"/><path d="M14.12 3.88 16 2"/><path d="M9 7.13v-1a3.003 3.003 0 1 1 6 0v1"/><path d="M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3c0 3.3-2.7 6-6 6"/><path d="M12 20v-9"/><path d="M6.53 9C4.6 8.8 3 7.1 3 5"/><path d="M6 13H2"/><path d="M3 21c0-2.1 1.7-3.9 3.8-4"/><path d="M20.97 5c0 2.1-1.6 3.8-3.5 4"/><path d="M22 13h-4"/><path d="M17.2 17c2.1.1 3.8 1.9 3.8 4"/></svg>
-            Bug
+            Issues
         </button>
     `;
 
@@ -263,4 +263,117 @@ export function openFloatingToolbar(rect) {
         hidePopups();
         openCreationForm(rect);
     };
+}
+
+export function openPageSidebar() {
+    let sidebar = document.getElementById('tb-page-sidebar');
+    if (!sidebar) {
+        sidebar = document.createElement('div');
+        sidebar.id = 'tb-page-sidebar';
+        sidebar.className = 'tb-sidebar';
+        document.body.appendChild(sidebar);
+    }
+
+    // Collect specific issue IDs from DOM
+    const visibleIssueIds = new Set();
+    document.querySelectorAll('.issue-highlight, .issue-highlight-image').forEach(el => {
+        const id = el.getAttribute('data-issue-id');
+        if (id) visibleIssueIds.add(String(id));
+    });
+
+    // Helper to extract the relative Docsify path (hash or pathname)
+    const getPagePath = (urlStr) => {
+        try {
+            const u = new URL(urlStr);
+            let p = u.hash;
+            if (!p || p === '#/') p = u.pathname;
+            return p.split('?')[0];
+        } catch (e) { return urlStr.split('?')[0]; }
+    };
+    const currentPath = getPagePath(window.location.href);
+
+    const pageIssues = state.issues.filter(i => {
+        // Method 1: URL matching (supports open & closed)
+        if (i.pageUrl && getPagePath(i.pageUrl) === currentPath) return true;
+        // Method 2: DOM highlighting fallback (supports older issues without URLs)
+        if (visibleIssueIds.has(String(i.id))) return true;
+        return false;
+    });
+
+    const openIssues = pageIssues.filter(i => i.state === 'open');
+    const closedIssues = pageIssues.filter(i => i.state === 'closed');
+
+    const renderIssue = (issue) => `
+        <div class="tb-issue-item" data-issue-id="${issue.id}">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <span style="font-size: 11px; font-weight: 800; color: ${issue.state === 'open' ? '#3b82f6' : '#9ca3af'};">#${issue.issueNumber}</span>
+                <span style="font-size: 10px; padding: 2px 8px; border-radius: 6px; font-weight: 700; text-transform: uppercase;" class="${issue.state === 'open' ? 'tb-badge-open' : 'tb-badge-closed'}">
+                    ${issue.state}
+                </span>
+            </div>
+            <div style="font-size: 14px; font-weight: 700; color: #111; margin-bottom: 6px;">${issue.title || 'No Title'}</div>
+            <div style="font-size: 12px; color: #6b7280; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.5; margin-bottom: 12px;">
+                ${issue.description || 'No description provided'}
+            </div>
+            <div style="font-size: 10px; color: #9ca3af; font-style: italic; border-top: 1px solid #f9fafb; padding-top: 8px;">
+                Ref: "${(issue.text || '').substring(0, 40)}${(issue.text || '').length > 40 ? '...' : ''}"
+            </div>
+        </div>
+    `;
+
+    sidebar.innerHTML = `
+        <div class="tb-sidebar-header">
+            <div>
+                <div style="font-size: 10px; font-weight: 800; color: #9ca3af; letter-spacing: 0.1em; margin-bottom: 2px;">CURRENT PAGE</div>
+                <div style="font-weight: 800; font-size: 18px; color: #111;">Issues on Page</div>
+            </div>
+            <div style="display: flex; gap: 12px; align-items: center;">
+                <button id="tb-page-sidebar-refresh" class="tb-icon-btn" title="Refresh list">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                </button>
+                <button id="tb-page-sidebar-close" class="tb-icon-btn" title="Close">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                </button>
+            </div>
+        </div>
+        <div class="tb-sidebar-content">
+            <div class="tb-column-header">
+                <span>Open Issues (${openIssues.length})</span>
+            </div>
+            <div class="tb-section-content">
+                ${openIssues.length === 0 ? '<div style="color: #9ca3af; text-align: center; margin-top: 20px; font-size: 13px;">No active issues on this page.</div>' : openIssues.map(renderIssue).join('')}
+            </div>
+            
+            <div class="tb-column-header" style="border-top: 1px solid #eee; position: sticky; top: -1px;">
+                <span>Closed Issues (${closedIssues.length})</span>
+            </div>
+            <div class="tb-section-content" style="background: white;">
+                ${closedIssues.length === 0 ? '<div style="color: #9ca3af; text-align: center; margin-top: 20px; font-size: 13px;">No closed issues on this page.</div>' : closedIssues.map(renderIssue).join('')}
+            </div>
+        </div>
+    `;
+
+    sidebar.classList.add('open');
+    document.getElementById('tb-page-sidebar-close').onclick = () => sidebar.classList.remove('open');
+    document.getElementById('tb-page-sidebar-refresh').onclick = () => {
+        sidebar.classList.remove('open');
+        setTimeout(() => openPageSidebar(), 100);
+    };
+
+    sidebar.querySelectorAll('.tb-issue-item').forEach(item => {
+        item.onclick = (e) => {
+            const issueId = item.getAttribute('data-issue-id');
+            const issue = state.issues.find(i => String(i.id) === String(issueId));
+            if (issue) {
+                sidebar.classList.remove('open');
+                const highlight = document.querySelector(`[data-issue-id="${issue.id}"]`);
+                if (highlight) {
+                    highlight.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    setTimeout(() => openIssueCard(issue, highlight.getBoundingClientRect()), 400);
+                } else {
+                    openIssueCard(issue, { top: window.innerHeight / 2, left: window.innerWidth / 2, width: 0, height: 0 });
+                }
+            }
+        };
+    });
 }

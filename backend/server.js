@@ -81,12 +81,16 @@ app.get("/api/issues/list", async (req, res) => {
                     else if (body.includes('**Selected Image:**\n')) extractedText = body.split('**Selected Image:**\n')[1]?.split('\n')[0]?.trim();
                 }
 
+                const urlMatch = body.match(/(?:\*\*URL:\*\*|URL:)[\s\r\n]*(http[^\s]+)/i);
+                const pageUrl = urlMatch ? urlMatch[1].trim() : '';
+
                 return {
                     id: `issue-${issue.id}`,
                     issueNumber: issue.number,
                     title: issue.title,
                     body: body,
                     url: issue.html_url,
+                    pageUrl: pageUrl,
                     selectedText: extractedText || 'No direct text reference',
                     state: (issue.state || 'open').toLowerCase()
                 };

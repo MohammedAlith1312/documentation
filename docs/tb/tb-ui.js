@@ -113,6 +113,18 @@ export function injectStyles() {
         
         .tb-badge-open { background: #ecfdf5; color: #10b981; }
         .tb-badge-closed { background: #f3f4f6; color: #6b7280; }
+
+        #tb-page-issues-btn {
+            position: fixed; top: 15px; right: 15px;
+            display: flex; gap: 8px; align-items: center;
+            background: white; border: 1px solid #e5e7eb;
+            color: #111; font-size: 13px; font-weight: 600;
+            padding: 8px 16px; border-radius: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            cursor: pointer; z-index: 9998;
+            transition: all 0.2s ease;
+        }
+        #tb-page-issues-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,0.1); border-color:#d1d5db; }
     `;
     document.head.appendChild(style);
 }
@@ -123,6 +135,13 @@ export function createDOMElements() {
         toast.id = 'tb-toast-container';
         toast.className = 'tb-toast';
         document.body.appendChild(toast);
+    }
+
+    if (!document.getElementById('tb-page-issues-btn')) {
+        const btn = document.createElement('button');
+        btn.id = 'tb-page-issues-btn';
+        btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg> Issues on Page`;
+        document.body.appendChild(btn);
     }
 }
 
@@ -175,8 +194,21 @@ export function reapplyHighlights(issuesToHighlight) {
         img.removeAttribute('data-issue-id');
     });
 
+    const getPagePath = (urlStr) => {
+        try {
+            const u = new URL(urlStr);
+            let p = u.hash;
+            if (!p || p === '#/') p = u.pathname;
+            return p.split('?')[0];
+        } catch (e) { return urlStr.split('?')[0]; }
+    };
+    const currentPath = getPagePath(window.location.href);
+
     issuesToHighlight.forEach(issue => {
         if (!issue.text || issue.state === 'closed' || issue.text === 'No direct text reference') return;
+
+        // Only highlight on the exact page this issue was created on
+        if (issue.pageUrl && getPagePath(issue.pageUrl) !== currentPath) return;
 
         if (!issue.text.startsWith('![')) {
             const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
