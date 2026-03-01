@@ -4,7 +4,7 @@ slug: /react
 content: |-
   ## Learn React
 
-  *   React is a JavaScript library for building user interfaces and functions.
+  *   React is a JavaScript lib for building user interfaces and functions.
       
   *   React is used to build single-page applications.
       
